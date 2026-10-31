@@ -10,19 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/setup-lean@v4
+      - name: Install elan + Lean toolchain (pinned in MipsSim/lean-toolchain)
+        run: curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+      - name: Restore .lake cache (packages + mathlib build)
+        uses: actions/cache@v4
         with:
-          version: v4.35.0
-      - name: Fetch mathlib build cache
-        run: cd MipsSim && lake exe cache get
+          path: MipsSim/.lake
+          key: lake-${{ hashFiles('MipsSim/lake-manifest.json') }}-${{ hashFiles('MipsSim/lean-toolchain') }}
+      - name: Fetch mathlib build cache (no-op when restored from cache)
+        run: cd MipsSim && ~/.elan/bin/lake exe cache get
       - name: Build all modules (includes unit tests / #guard)
-        run: cd MipsSim && lake build
+        run: cd MipsSim && ~/.elan/bin/lake build
 
   make-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: RULES.md requirement: fresh clone -> make install && make run
+      - name: "RULES.md requirement: fresh clone -> make install && make run"
         run: |
           make install
           make run
