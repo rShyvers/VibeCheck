@@ -55,13 +55,46 @@ program with a proof that behavior is unchanged.
 
 Known assembler constraint for the diff corpus: `la` only in `la $rt, label` form.
 
-## Open decisions (quiz)
+## Decisions (locked 10/31)
 
-- **Q2** Demo shape of `make run`: (a) polished batch CLI + trace [floor] / (b) REPL-TUI / (c) Java GUI shell. Framing: "verified MIPS simulator that found a bug in MARS" vs consumer-shaped?
-- **Q3-refined** LLM optimization now targets the **MIPS program** (Act 4). Confirm: our documented Claude worker is "the LLM"; Step itself gets an optional optimization pass only if time allows.
-- **Q4** Versioning: git tags `v1-buggy` → `v2-fixed` → `v3-optimized` on one branch (proposed) vs branches/copies?
-- **Q5** Deadline + demo venue (this box / Mac / judge machine)? Cut order if tight: TUI/GUI → MARS-bug divergence demo → benchmark polish.
-- **Program intent:** user to describe, in their own words, what the CS47 program is supposed to compute (needed to write its functional spec at unseal time; cleanroom-safe).
+- **Deadline: 6 PM, Nov 1 (~27 h).** Venue n/a — we build the demo + a slide deck.
+- **CS47 program:** user's own hand-written MIPS project, **6 files, 2 of which are
+  function test files** (the other 4: presumably main/entry, function implementations,
+  data/support). Goal at unseal: run it through our semantics, prove what we can, and
+  find the arithmetic error (location unknown to us — that's the point).
+  **Act 2 strategy:** write a functional spec per function (its mathematical intent,
+  from user description + repo docs — not from reading the implementation first);
+  verify each function under our semantics → counterexample localizes the faulty
+  file/instruction; the 2 test files double as executable cross-checks (run them in
+  both our sim and MARS, compare).
+- **Demo direction (Act 5):** small **web-based verdict view** of Lean4 results —
+  parse run/verification output (exit code, program output, proof/bug verdict)
+  and display it so bug-freeness is visible at a glance. Defer building until the
+  bug story works; keep it minimal (structured output from the Lean binary + tiny
+  single-page frontend). Not the CLI simulator itself.
+- **Versioning (v1-buggy/v2-fixed/v3-optimized):** deferred — decide when we reach Act 2/3.
+- **LLM optimization (Act 4):** targets the MIPS program; our documented Claude worker
+  is "the LLM". Stretch goal given the deadline.
+
+## 27-hour battle plan (from ~12:30 Oct 31)
+
+| Window | Work | Parallelism |
+|---|---|---|
+| now → +3 h | Wave 2 Step lands → review → PR → merge | Claude worker (running) |
+| +3 → +7 h | Wave 3: DiffHarness (vs MARS, independent corpus) ∥ Specs layer (spec S theorems: invariants + per-instruction lemmas + satisfiable examples + bad-output rejections) | 2 workers, worktrees |
+| +7 → +9 h | Act 1 closeout: comparator file + `lake check`/comparator gate; diff corpus green ⇒ **G1** | orchestrator |
+| +9 h → evening | **Unseal + Act 2 bug hunt**: clone sealed asset outside repo, functional spec for the program, verify in Lean → counterexample → pinpoint arithmetic error | worker + orchestrator |
+| evening → morning | Act 3: fix assembly, prove fixed ≡ original except buggy behavior (program-level equivalence under our semantics) | worker, high thinking |
+| morning Nov 1 | Act 4 (stretch): LLM-optimizes program + equivalence proof; web verdict view (minimal); slide deck | workers ∥ orchestrator |
+
+**Cut lines (honest-shipping rules):**
+- If Act 3's proof isn't done by ~noon Nov 1: ship with fix **differentially validated**
+  (fixed program matches expected outputs on the full test matrix) and say so plainly;
+  keep the proof attempt as appendix material.
+- Act 4 demotes to "demonstrated on one subroutine" or is cut entirely; the verified-
+  semantics + real-bug-found story stands without it.
+- Web view floor: static page rendering the JSON verdict of the final program run.
+- Slides: 6–8 max, built from PLAN.md + commit history (the git log IS the narrative).
 
 ## CI & merge flow
 
