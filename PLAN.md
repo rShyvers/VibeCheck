@@ -49,9 +49,10 @@ program with a proof that behavior is unchanged.
 |---|---|---|
 | 0 | Word.lean, Types.lean (foundation) | ✅ merged, tested |
 | 1 | State.lean ∥ Instruction.lean (41 variants = full v1 set + syscall) ∥ Asm.lean (40 instrs + li/la/move/nop) | ✅ merged, tested, green on main |
-| 2 | Step.lean (+ Sim.run loop), single writer, high thinking | ⏳ next — brief must note: decode knows all v1 variants; implement exactly the v1 set per SPEC-NOTES §6 (which IS the full 40+syscall); raw immediates need signExt16/zeroExt16 per INSTRUCTION-REF; HashMap ops are cbv_opaque → use #guard for stateful checks |
-| 3 | DiffHarness (exe: Sim vs spawned MARS) ∥ Specs layer (spec S statements, satisfiable examples, bad-output rejections) | ⏳ after Wave 2 |
-| — | Comparator file + `lake check`/comparator gate | with Act 1 closeout |
+| 2 | Step.lean (+ Sim.run loop) | ✅ merged PR #1 + foundation fix a6d63ae (syscall mnemonic in Asm, syscall-1 no-newline, SPEC-NOTES endianness correction) |
+| 3a | DiffHarness (exe: Sim vs spawned MARS) | ✅ merged PR #2 (12/12 corpus PASS vs real MARS, independently re-run) |
+| 3b | Specs layer (spec S statements, satisfiable examples, bad-output rejections) | ✅ merged PR #3 (21 closed theorems, 3 documented sorries with closed weaker substitutes) |
+| — | Comparator file + `lake check`/comparator gate | ✅ `lake comparator` exits 0 on an 8-theorem trusted surface (`MipsSim/comparator.json`, axioms propext/Classical.choice/Quot.sound); `lake check` exits 0 on a new sorry-free `Checked` default target (`MipsSim/Checked.lean`) that excludes `StepSpec`'s 3 documented sorries by design — see README "Verification gates" |
 
 Known assembler constraint for the diff corpus: `la` only in `la $rt, label` form.
 
