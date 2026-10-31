@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lean-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/setup-lean@v4
+        with:
+          version: v4.35.0
+      - name: Fetch mathlib build cache
+        run: cd MipsSim && lake exe cache get
+      - name: Build all modules (includes unit tests / #guard)
+        run: cd MipsSim && lake build
+
+  make-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: RULES.md requirement: fresh clone -> make install && make run
+        run: |
+          make install
+          make run
