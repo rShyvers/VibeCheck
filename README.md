@@ -28,10 +28,26 @@ The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is 
 
 ## Verification gates
 
-The Lean project (`MipsSim/`, Lean 4.35.0) proves properties of a MIPS
-simulator written in Lean (`step`, in `MipsSim/Step.lean`) against a spec
-(`MipsSim/Specs/StepSpec.lean`) — see `CLAUDE.md` for
-the full approach. Two gates decide whether a proof counts as "done":
+The Lean project (`MipsSim/`, Lean 4.35.0) implements and proves properties
+of **Semantic MIPS** — a small-step semantics of the v1 MIPS dialect,
+written in Lean, plus the kernel-checked theorems that say it matches its
+spec. See `CLAUDE.md` for the full approach to writing and checking these
+proofs.
+
+The trust chain is plain: the MIPS language spec lives in `docs/spec/`
+(`INSTRUCTION-REF.md` and `SPEC-NOTES.md`), human-written and sourced to
+the real MARS 4.5 simulator's behavior. Semantic MIPS
+(`MipsSim/MipsSim/Step.lean`'s `step` function) is the Lean implementation
+of that spec. The spec's key claims are kernel-checked theorems
+(`MipsSim/MipsSim/Specs/StepSpec.lean`), judged by `lake comparator`
+against a trusted statement file (`comparator.json`), and the whole
+semantics is differentially validated against real MARS 4.5 on a
+12-program corpus (`DiffHarness`). The project's narrative is deliberately
+simple: formally verify the MIPS spec into Semantic MIPS, validate it
+against MARS, then use it to find a real arithmetic bug in a sealed
+program.
+
+Two gates decide whether a proof counts as "done":
 
 - **`lake check`** rebuilds the project's default target, replays the
   result through Lean's own kernel, and fails if anything uses an axiom
@@ -77,7 +93,7 @@ both gates.
 - **`lake check`: green, with one documented, scoped exclusion.**
   `lake check` has no per-theorem axiom allowlist — it is pass/fail over
   its whole default target — so a file with any `sorry` in it fails the
-  gate outright. `MipsSim/Specs/StepSpec.lean` (the spec file) has 3 such
+  gate outright. `MipsSim/MipsSim/Specs/StepSpec.lean` (the spec file) has 3 such
   `sorry`s (below), so it is excluded from `lake check`'s default target:
   the default target is a new `Checked` library (`MipsSim/Checked.lean`,
   set as the default in `lakefile.toml`) covering everything *except* the
@@ -91,7 +107,7 @@ both gates.
 
 ### Open items: 3 documented `sorry`s
 
-All three are in `MipsSim/Specs/StepSpec.lean`, each with a closed, weaker
+All three are in `MipsSim/MipsSim/Specs/StepSpec.lean`, each with a closed, weaker
 version proved instead and a concrete `#guard`-checked example:
 
 1. **`step_preserves_zero_register`** — "register `$zero` always reads `0`

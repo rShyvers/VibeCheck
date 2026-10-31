@@ -45,6 +45,10 @@ program with a proof that behavior is unchanged.
 
 ## Build state
 
+The Lean implementation (`step` + its proven spec) is referred to as
+**Semantic MIPS** elsewhere in the docs (see root README "Verification
+gates"); this table tracks its build waves.
+
 | Wave | Modules | Status |
 |---|---|---|
 | 0 | Word.lean, Types.lean (foundation) | ✅ merged, tested |
