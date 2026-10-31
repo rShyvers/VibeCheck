@@ -19,8 +19,12 @@ jobs:
           key: lake-${{ hashFiles('MipsSim/lake-manifest.json') }}-${{ hashFiles('MipsSim/lean-toolchain') }}
       - name: Fetch mathlib build cache (no-op when restored from cache)
         run: cd MipsSim && ~/.elan/bin/lake exe cache get
-      - name: Build all modules (includes unit tests / #guard)
-        run: cd MipsSim && ~/.elan/bin/lake build
+      - name: Build all targets (MipsSim incl. StepSpec, Checked, DiffHarness; includes unit tests / #guard)
+        run: cd MipsSim && ~/.elan/bin/lake build MipsSim Checked DiffHarness
+      - name: Kernel replay gate (lake check on the zero-sorry target)
+        run: cd MipsSim && ~/.elan/bin/lake check
+      - name: Trusted-statement gate (lake comparator on the 8-theorem trusted surface)
+        run: cd MipsSim && ~/.elan/bin/lake comparator
 
   make-smoke:
     runs-on: ubuntu-latest
