@@ -155,30 +155,30 @@ the one specific, unresolved blocker for the CS47 unseal (PLAN.md's
 cleanroom protocol above) — everything else that was "out of v1 scope" six
 hours ago now exists.
 
-### Additional game candidates researched (Nov 1): Connect Four noted, deferred
+### Additional game candidates researched (Nov 1): Connect Four noted, deferred (status changed below)
 
 Researched what else could run on this architecture, now scoped against
-what's actually on semantic-mips' `main` (not our pin). Findings and
-decision:
+what's actually on semantic-mips' `main` (not our pin). Findings at the time:
 
-- **Tic-Tac-Toe stays as shipped, unchanged.** No rewrite, no re-pin.
+- **Tic-Tac-Toe stays as shipped, unchanged.** No rewrite, no re-pin. *(Since
+  superseded — see "Re-pin executed" below: it was rewritten for delay slots
+  and the repo did re-pin.)*
 - **Connect Four (Tromp's 49-bit bitboard encoding)** is a real, well-scoped
   candidate for later: 7x4-direction win-check via bitwise shift+mask
   (same style as Tic-Tac-Toe's mask checks, just four shift distances
   instead of eight fixed lines), recognizable, visually a step up.
-  Estimated ~3-4h port effort. **Requires `jr`/`jalr` and real branch delay
-  slots** (both landed on their `main`, see the re-pin review below) and,
-  separately, a full rewrite of *all* branch-based game logic for delay-slot
-  timing — the same cost that blocks any re-pin today. Not started; revisit
-  only alongside a deliberate decision to re-pin and redo Tic-Tac-Toe's
-  engine for delay slots at the same time, not before.
+  Estimated ~3-4h port effort. Needed `jr`/`jalr` and real branch delay
+  slots, both now live on our pin (`9cf0297`) — the ISA blocker is gone.
+  **Still not started** — this is new engine work (a different game), not
+  automatic from the Tic-Tac-Toe delay-slot fix. Worth a look now that the
+  pin supports it and the delay-slot technique (insert a `nop` after every
+  branch/jump the generator emits) is proven out.
 - Nim (Bouton's XOR theorem) was also researched as a lower-risk near-term
-  option — notably, it needs **no** re-pin (the move logic is straight-line,
-  no subroutines required) and has a genuinely clean, provable property.
-  Not pursued this round (not asked for); noted here in case it's picked up
-  later.
+  option — notably needs no subroutines, and has a genuinely clean, provable
+  property. Not pursued this round (not asked for); noted here in case it's
+  picked up later.
 
-### Re-pin review (Nov 1, later): checked directly, decided against for now
+### Re-pin review (Nov 1, later): checked directly, decided against for now (superseded below)
 
 Since the note above, `main` gained a second wave: PR #9 ("32 -> 116
 StepSpec theorems") and PR #10 ("116 -> 145 theorems") proved nearly every
@@ -203,14 +203,51 @@ ships against it:
   executes too, which the straight-line mask-check code never accounted
   for) — e.g. placing X in an empty cell wrongly reports an immediate win.
 
-**Decision: not re-pinning.** The new semantics and proof coverage are
-genuinely better, but the only upstream win-condition improvement available
-to us from this (a stronger, delay-slot-aware opponent) requires rewriting
-Tic-Tac-Toe's engine from scratch and re-earning the same exhaustive-testing
-rigor it already passed once, under whatever time is left. Holding at
-`abf580d` keeps the shipped, tested, honestly-caveated game working. Revisit
-if there's ever clearly enough runway to redo that work properly — not a
-casual bump.
+**Decision at the time: not re-pinning.** Holding at `abf580d` kept the
+shipped, tested, honestly-caveated game working rather than rushing a fix.
+Flagged for revisiting if there was ever clearly enough runway to redo the
+delay-slot work properly.
+
+### Re-pin executed (Nov 1, still later): the delay-slot blocker fixed, re-pinned to `9cf0297`
+
+Runway appeared, so the blocker above was actually fixed, not just deferred
+further. Both Tic-Tac-Toe templates (Hard and Easy) are produced by a small
+Python generator (`gen.py`, developed and kept outside this repo) rather
+than hand-written — the right fix is in the generator, not a one-off patch
+to its output, per the generator's own stated convention.
+
+**The fix**: insert a `nop` immediately after every branch/jump the
+generator emits — 72 for Hard (60 `beq`, 3 `bne`, 1 `blez`, 2 `bgtz`, 6 `j`),
+52 for Easy (44 `beq`, 1 `bne`, 1 `blez`, 6 `j`) — so the delay slot is a
+true no-op and behavior is restored exactly. This is the standard way to
+write delay-slot-safe MIPS when not optimizing for speed, which doesn't
+matter here (one extra no-op per branch against a 1,000,000-step budget).
+Confirmed the diff touches nothing else (`diff | grep -v nop` shows only
+the added `nop` lines plus a 3-line header comment).
+
+One genuine extra finding along the way: the *original* Easy template had a
+real delay-slot hazard bug that the new semantics' dedicated
+`branchInDelaySlot` halt reason caught outright (2 of its 18,338
+pre-fix failures were that halt, not silent corruption) — a `beq` was
+directly followed by `j print_board`, putting a jump inside another
+branch's delay slot.
+
+**Re-verified with the same rigor the engine originally earned, independently
+reproduced, not just trusted from a report**: built `MipsRun` from `9cf0297`
+myself, ran all four exhaustive suites (`test.py B`, `B --all`, `A`, `A --all`
+— 34,529 + 216,513 + 34,529 + 216,513 differential runs, full game-tree
+replays for both opponents) — zero failures, histograms and win/loss/draw
+counts identical to the original pre-fix build. Mutation-tested: all 9
+deliberately-broken variants still caught, with the exact same failure
+counts as before the fix (264, 3397, 117, 1334, 6590, 1546, 1733, 240, 305)
+— the test suite still has teeth, not just a lucky pass.
+
+**Current pin: `9cf0297`.** Rebuilt and re-vendored `vendor/mipsrun/linux-x64/MipsRun`
+from this commit (stripped, 3.2M), re-confirmed it runs correctly in a fully
+scrubbed environment (no Lean toolchain reachable), and re-ran the full
+Tic-Tac-Toe suite against that exact vendored binary — zero failures. Both
+opponents (Hard, Easy) replayed live through the actual server: same
+outcomes as before the re-pin, page layout unaffected, zero console errors.
 
 ## Decisions (locked 10/31)
 

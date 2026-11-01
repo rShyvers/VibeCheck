@@ -634,6 +634,9 @@ const TICTACTOE_ASM_TEMPLATE = `# ==============================================
 #
 # Registers: $s0 = board, $a1 = human move, $s3 = status to print.
 #
+# Branch delay slots: the instruction after each branch or jump always
+# runs, so every branch and jump here is followed by a nop.
+#
 # Output: the 9 cell values (0/1/2) each followed by a space, a newline,
 # the status, a newline. Status: 0 game continues, 1 X wins, 2 O wins,
 # 3 draw, 4 invalid move (board printed unchanged, computer does not move).
@@ -681,68 +684,88 @@ const TICTACTOE_ASM_TEMPLATE = `# ==============================================
         li   $t9, 21       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 1344     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 86016    # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 4161     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 16644    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 66576    # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 65793    # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 4368     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         # any O line in $s0? -> invalid
         li   $t9, 42       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 2688     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 172032   # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 8322     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 33288    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 133152   # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 131586   # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 8736     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
 
 # --- 2. validate the move: 0 <= move <= 8 and cell empty ---
         sltiu $t0, $a1, 9           # unsigned compare: negative moves fail too
         beq  $t0, $zero, invalid
+        nop                         # delay slot
         li   $t2, 1                 # $t2 := 1 << (2 * move)  (no variable shifts)
         move $t1, $a1
 shift_loop:
         blez $t1, shift_done
+        nop                         # delay slot
         sll  $t2, $t2, 2
         addi $t1, $t1, -1
         j    shift_loop
+        nop                         # delay slot
 shift_done:
         sll  $t3, $t2, 1
         or   $t3, $t3, $t2          # $t3 := both bits of the cell
         and  $t0, $s0, $t3
         bne  $t0, $zero, invalid    # occupied (also covers a full board)
+        nop                         # delay slot
 
 # --- 3. place X ---
         or   $s0, $s0, $t2
@@ -752,33 +775,42 @@ shift_done:
         li   $t9, 21       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 1344     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 86016    # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 4161     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 16644    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 66576    # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 65793    # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 4368     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         # board full? (each cell has bit 2i or bit 2i+1 set) -> draw
         srl  $t0, $s0, 1
         or   $t0, $t0, $s0
         li   $t9, 87381             # bit 2i of every cell
         and  $t0, $t0, $t9
         beq  $t0, $t9, draw
+        nop                         # delay slot
 
 # --- 5. computer turn (Stage B): win, else block, else center/corner/edge ---
         # pass: win (O). Try O in each empty cell 0..8.
@@ -789,37 +821,47 @@ win_cell:
         or   $t3, $t3, $t2
         and  $t0, $s0, $t3
         bne  $t0, $zero, win_next # occupied
+        nop                         # delay slot
         sll  $t4, $t2, 1
         or   $t4, $s0, $t4
         # any O line in $t4? -> place_o
         li   $t9, 42       # cells (0, 1, 2)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 2688     # cells (3, 4, 5)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 172032   # cells (6, 7, 8)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 8322     # cells (0, 3, 6)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 33288    # cells (1, 4, 7)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 133152   # cells (2, 5, 8)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 131586   # cells (0, 4, 8)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 8736     # cells (2, 4, 6)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
 win_next:
         sll  $t2, $t2, 2
         addi $t5, $t5, -1
         bgtz $t5, win_cell
+        nop                         # delay slot
         # pass: block (X). Try X in each empty cell 0..8.
         li   $t2, 1                 # low bit of candidate cell
         li   $t5, 9                 # candidates left
@@ -828,74 +870,94 @@ block_cell:
         or   $t3, $t3, $t2
         and  $t0, $s0, $t3
         bne  $t0, $zero, block_next # occupied
+        nop                         # delay slot
         or   $t4, $s0, $t2
         # any X line in $t4? -> place_o
         li   $t9, 21       # cells (0, 1, 2)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 1344     # cells (3, 4, 5)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 86016    # cells (6, 7, 8)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 4161     # cells (0, 3, 6)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 16644    # cells (1, 4, 7)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 66576    # cells (2, 5, 8)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 65793    # cells (0, 4, 8)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
         li   $t9, 4368     # cells (2, 4, 6)
         and  $t0, $t4, $t9
         beq  $t0, $t9, place_o
+        nop                         # delay slot
 block_next:
         sll  $t2, $t2, 2
         addi $t5, $t5, -1
         bgtz $t5, block_cell
+        nop                         # delay slot
         # first empty cell in order [4, 0, 2, 6, 8, 1, 3, 5, 7]
         srl  $t0, $s0, 8
         andi $t0, $t0, 3
         li   $t2, 256
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         move $t0, $s0
         andi $t0, $t0, 3
         li   $t2, 1
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 4
         andi $t0, $t0, 3
         li   $t2, 16
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 12
         andi $t0, $t0, 3
         li   $t2, 4096
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 16
         andi $t0, $t0, 3
         li   $t2, 65536
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 2
         andi $t0, $t0, 3
         li   $t2, 4
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 6
         andi $t0, $t0, 3
         li   $t2, 64
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 10
         andi $t0, $t0, 3
         li   $t2, 1024
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 14
         andi $t0, $t0, 3
         li   $t2, 16384
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         j    print_board            # unreachable: X left an empty cell
+        nop                         # delay slot
 
 # --- 6. place O at the cell whose low bit is $t2 ---
 place_o:
@@ -905,44 +967,57 @@ place_o:
         li   $t9, 42       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 2688     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 172032   # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 8322     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 33288    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 133152   # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 131586   # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 8736     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         # board full? (each cell has bit 2i or bit 2i+1 set) -> draw
         srl  $t0, $s0, 1
         or   $t0, $t0, $s0
         li   $t9, 87381             # bit 2i of every cell
         and  $t0, $t0, $t9
         beq  $t0, $t9, draw
+        nop                         # delay slot
         li   $s3, 0                 # game continues
         j    print_board
+        nop                         # delay slot
 x_wins:
         li   $s3, 1
         j    print_board
+        nop                         # delay slot
 o_wins:
         li   $s3, 2
         j    print_board
+        nop                         # delay slot
 draw:
         li   $s3, 3
         j    print_board
+        nop                         # delay slot
 invalid:
         li   $s3, 4                 # board unchanged: X was not placed
 
@@ -1041,6 +1116,9 @@ const TICTACTOE_ASM_TEMPLATE_EASY = `# =========================================
 #
 # Registers: $s0 = board, $a1 = human move, $s3 = status to print.
 #
+# Branch delay slots: the instruction after each branch or jump always
+# runs, so every branch and jump here is followed by a nop.
+#
 # Output: the 9 cell values (0/1/2) each followed by a space, a newline,
 # the status, a newline. Status: 0 game continues, 1 X wins, 2 O wins,
 # 3 draw, 4 invalid move (board printed unchanged, computer does not move).
@@ -1088,68 +1166,88 @@ const TICTACTOE_ASM_TEMPLATE_EASY = `# =========================================
         li   $t9, 21       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 1344     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 86016    # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 4161     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 16644    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 66576    # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 65793    # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 4368     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         # any O line in $s0? -> invalid
         li   $t9, 42       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 2688     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 172032   # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 8322     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 33288    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 133152   # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 131586   # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
         li   $t9, 8736     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, invalid
+        nop                         # delay slot
 
 # --- 2. validate the move: 0 <= move <= 8 and cell empty ---
         sltiu $t0, $a1, 9           # unsigned compare: negative moves fail too
         beq  $t0, $zero, invalid
+        nop                         # delay slot
         li   $t2, 1                 # $t2 := 1 << (2 * move)  (no variable shifts)
         move $t1, $a1
 shift_loop:
         blez $t1, shift_done
+        nop                         # delay slot
         sll  $t2, $t2, 2
         addi $t1, $t1, -1
         j    shift_loop
+        nop                         # delay slot
 shift_done:
         sll  $t3, $t2, 1
         or   $t3, $t3, $t2          # $t3 := both bits of the cell
         and  $t0, $s0, $t3
         bne  $t0, $zero, invalid    # occupied (also covers a full board)
+        nop                         # delay slot
 
 # --- 3. place X ---
         or   $s0, $s0, $t2
@@ -1159,33 +1257,42 @@ shift_done:
         li   $t9, 21       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 1344     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 86016    # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 4161     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 16644    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 66576    # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 65793    # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         li   $t9, 4368     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, x_wins
+        nop                         # delay slot
         # board full? (each cell has bit 2i or bit 2i+1 set) -> draw
         srl  $t0, $s0, 1
         or   $t0, $t0, $s0
         li   $t9, 87381             # bit 2i of every cell
         and  $t0, $t0, $t9
         beq  $t0, $t9, draw
+        nop                         # delay slot
 
 # --- 5. computer turn (Stage A): first empty cell ---
         # first empty cell in order range(0, 9)
@@ -1193,39 +1300,49 @@ shift_done:
         andi $t0, $t0, 3
         li   $t2, 1
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 2
         andi $t0, $t0, 3
         li   $t2, 4
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 4
         andi $t0, $t0, 3
         li   $t2, 16
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 6
         andi $t0, $t0, 3
         li   $t2, 64
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 8
         andi $t0, $t0, 3
         li   $t2, 256
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 10
         andi $t0, $t0, 3
         li   $t2, 1024
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 12
         andi $t0, $t0, 3
         li   $t2, 4096
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 14
         andi $t0, $t0, 3
         li   $t2, 16384
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         srl  $t0, $s0, 16
         andi $t0, $t0, 3
         li   $t2, 65536
         beq  $t0, $zero, place_o
+        nop                         # delay slot
         j    print_board            # unreachable: X left an empty cell
+        nop                         # delay slot
 
 # --- 6. place O at the cell whose low bit is $t2 ---
 place_o:
@@ -1235,44 +1352,57 @@ place_o:
         li   $t9, 42       # cells (0, 1, 2)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 2688     # cells (3, 4, 5)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 172032   # cells (6, 7, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 8322     # cells (0, 3, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 33288    # cells (1, 4, 7)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 133152   # cells (2, 5, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 131586   # cells (0, 4, 8)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         li   $t9, 8736     # cells (2, 4, 6)
         and  $t0, $s0, $t9
         beq  $t0, $t9, o_wins
+        nop                         # delay slot
         # board full? (each cell has bit 2i or bit 2i+1 set) -> draw
         srl  $t0, $s0, 1
         or   $t0, $t0, $s0
         li   $t9, 87381             # bit 2i of every cell
         and  $t0, $t0, $t9
         beq  $t0, $t9, draw
+        nop                         # delay slot
         li   $s3, 0                 # game continues
         j    print_board
+        nop                         # delay slot
 x_wins:
         li   $s3, 1
         j    print_board
+        nop                         # delay slot
 o_wins:
         li   $s3, 2
         j    print_board
+        nop                         # delay slot
 draw:
         li   $s3, 3
         j    print_board
+        nop                         # delay slot
 invalid:
         li   $s3, 4                 # board unchanged: X was not placed
 
