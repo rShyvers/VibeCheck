@@ -8,8 +8,12 @@ The project ships a portable **Temurin JRE 21** in `vendor/jre/`, so you don't n
 
 ### macOS / Linux
 ```sh
+git clone --recurse-submodules https://github.com/rShyvers/VibeCheck && cd VibeCheck
 make install && make run
 ```
+
+`--recurse-submodules` fetches the pinned Semantic MIPS (see below). A plain
+`git clone` also works: `make install` fetches the submodule automatically.
 
 ### Windows
 ```bat
@@ -24,7 +28,14 @@ The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is 
 ## What's trusted
 
 - **Bundled runtime:** Eclipse Temurin OpenJDK 21 (JRE), one archive per platform in `vendor/jre/`. This is the only external dependency; nothing is downloaded at install time.
+- **Pinned semantics:** the Lean work lives in its own repo and is embedded here as a git submodule at a pinned commit, so every run of this project uses exactly the semantics version the pin names (see "Semantic MIPS (submodule)").
 - Verification claims and their trusted surface are documented here as they land.
+
+## Semantic MIPS (submodule)
+
+The Lean semantics live in [rShyvers/semantic-mips](https://github.com/rShyvers/semantic-mips) and are embedded here as a **git submodule** at `semantic-mips/`, pinned to a specific commit. A plain `git clone` leaves that folder empty; `make install` (or `git submodule update --init`) fetches the pinned version, so `make install && make run` works from a fresh clone.
+
+The demo always runs against the **pinned** commit, never a moving branch. To build against a newer semantics: `cd semantic-mips && git fetch`, check out the commit you want, then from the repo root commit the updated pin (`git add semantic-mips`).
 
 ## Verification gates
 

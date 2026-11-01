@@ -5,9 +5,10 @@
 # Java is required. `make install` extracts the archive for your platform
 # into .jre/; `make run` uses that JRE to run the project.
 
-JRE_DIR := .jre
-VENDOR  := vendor/jre
-JAVA    := $(JRE_DIR)/bin/java
+JRE_DIR   := .jre
+VENDOR    := vendor/jre
+JAVA      := $(JRE_DIR)/bin/java
+SEMANTICS := semantic-mips
 
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -27,9 +28,15 @@ else ifeq ($(UNAME_S),Darwin)
   endif
 endif
 
-.PHONY: install run clean
+# Semantic MIPS is a git submodule pinned to a specific commit (see README).
+# Fetch it on install so a fresh clone satisfies RULES.md without the cloner
+# needing to know about submodules. No-op when already checked out.
+.PHONY: install run clean submodules
 
-install: $(JAVA)
+submodules:
+	@if test -d .git; then git submodule update --init --recursive; else echo "not a git checkout; skipping submodule fetch"; fi
+
+install: submodules $(JAVA)
 	@echo "Bundled JRE ready:"
 	@$(JAVA) -version 2>&1 | sed 's/^/    /'
 
