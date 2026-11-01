@@ -109,6 +109,14 @@
   .tab.active { color: var(--text); border-bottom-color: var(--green); }
 
   .editor-card { margin-bottom: 24px; }
+  .example-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .example-btn {
+    background: #0d1320; color: var(--dim); border: 1px solid var(--panel-edge); border-radius: 999px;
+    font-family: var(--mono); font-size: 12px; padding: 5px 12px; cursor: pointer;
+  }
+  .example-btn:hover { color: var(--text); }
+  .example-btn.active { color: var(--green); background: var(--green-dim); border-color: rgba(47, 214, 123, 0.45); }
+  .example-caption { color: var(--dim); font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
   textarea.asm {
     width: 100%; min-height: 300px; resize: vertical; tab-size: 4;
     background: #0d1320; color: var(--text); border: 1px solid var(--panel-edge); border-radius: 10px;
@@ -166,6 +174,8 @@
   <section id="view-run" role="tabpanel" aria-labelledby="tab-run">
     <div class="card editor-card">
       <h2>MIPS assembly</h2>
+      <div class="example-picker" id="example-picker" role="group" aria-label="Load an example program"></div>
+      <p class="example-caption" id="example-caption"></p>
       <textarea class="asm" id="asm" spellcheck="false" autocomplete="off" aria-label="MIPS assembly source"># Add two numbers on the verified machine. Watch $t0, $t1, $t2 in the
 # register grid below — no .data section, so everything is visible there.
 .text
@@ -373,6 +383,116 @@ async function runCode() {
   }
 }
 document.getElementById("run-btn").addEventListener("click", runCode);
+
+// ---- Example picker ------------------------------------------------------
+
+// Programs the user can load into the editor with one click. "hello" is the
+// textarea's own initial content, so the page still loads with it.
+const EXAMPLES = [
+  {
+    id: "hello",
+    label: "Hello world",
+    caption: "Adds 7 + 35 on the verified machine and prints 42.",
+    asm: document.getElementById("asm").defaultValue,
+  },
+  {
+    id: "div-bug",
+    label: "Bug: division by shift",
+    caption: "A naive shortcut for x / 4 (shift right) gives -1 for x = -1, but real division gives 0. Prints the correct result, then the buggy one.",
+    asm: `# The planted bug from the equivalence corpus: x/4 via real MIPS div vs a
+# naive "replace division by shifting" optimization, run side by side on
+# x = -1. A compiler would never apply this optimization to negative
+# numbers -- this is exactly the kind of bug the verified semantics catches.
+.text
+main:
+    li   $a0, -1          # x = -1
+
+    li   $t0, 4           # correct: MIPS div truncates toward zero
+    div  $a0, $t0         #   -1 / 4 = 0
+    mflo $t1
+
+    sra  $t2, $a0, 2      # buggy "optimization": arithmetic shift rounds
+                          #   toward -infinity -- gives -1, not 0
+
+    li   $v0, 1           # print correct result
+    move $a0, $t1
+    syscall
+    li   $v0, 11
+    li   $a0, 10
+    syscall
+
+    li   $v0, 1           # print buggy result
+    move $a0, $t2
+    syscall
+    li   $v0, 11
+    li   $a0, 10
+    syscall
+
+    li   $v0, 10
+    syscall
+`,
+  },
+  {
+    id: "mod-bug",
+    label: "Bug: modulo via bitmask",
+    caption: "A naive shortcut for x % 4 (keep the low bits) gives 3 for x = -1, but the real remainder is -1. Prints the correct result, then the buggy one.",
+    asm: `# The planted bug from the equivalence corpus: x%4 via real MIPS div/mfhi
+# vs a naive "replace mod-power-of-two with a bitmask" optimization, run
+# side by side on x = -1. A bitmask is always non-negative; signed
+# remainder takes the sign of the dividend -- they disagree here.
+.text
+main:
+    li   $a0, -1          # x = -1
+
+    li   $t0, 4           # correct: signed remainder takes sign of
+    div  $a0, $t0         #   dividend -- -1 % 4 = -1
+    mfhi $t1
+
+    andi $t2, $a0, 3      # buggy "optimization": bitmask is always
+                          #   non-negative -- gives 3, not -1
+
+    li   $v0, 1           # print correct result
+    move $a0, $t1
+    syscall
+    li   $v0, 11
+    li   $a0, 10
+    syscall
+
+    li   $v0, 1           # print buggy result
+    move $a0, $t2
+    syscall
+    li   $v0, 11
+    li   $a0, 10
+    syscall
+
+    li   $v0, 10
+    syscall
+`,
+  },
+];
+
+// Marks one example active and shows its caption. With loadSource, also
+// overwrites the editor with its source (any hand edits are discarded).
+// Never runs the program; the user still presses Run.
+function selectExample(id, loadSource) {
+  const ex = EXAMPLES.find(e => e.id === id);
+  if (!ex) return;
+  for (const btn of document.querySelectorAll(".example-btn")) {
+    const active = btn.dataset.example === id;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  }
+  document.getElementById("example-caption").textContent = ex.caption;
+  if (loadSource) document.getElementById("asm").value = ex.asm;
+}
+
+document.getElementById("example-picker").innerHTML = EXAMPLES.map(e =>
+  `<button class="example-btn" type="button" data-example="${esc(e.id)}" aria-pressed="false">${esc(e.label)}</button>`).join("");
+for (const btn of document.querySelectorAll(".example-btn")) {
+  btn.addEventListener("click", () => selectExample(btn.dataset.example, true));
+}
+// On page load: mark "Hello world" active without touching the editor.
+selectExample("hello", false);
 
 // ---- Verdict -------------------------------------------------------------
 
