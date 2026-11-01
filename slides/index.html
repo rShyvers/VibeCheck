@@ -234,44 +234,55 @@ mod_pow2_buggy:  x%4 via div/mfhi  <span class="c">vs</span>  plain andi mask
 
   <!-- 6: The demo -->
   <section class="slide">
-    <div class="kicker">What you can try right now</div>
-    <h1>Paste MIPS. Run it on the <span class="accent">verified machine</span>.</h1>
-    <p class="lede"><code style="font-family:var(--mono)">make install &amp;&amp; make run</code> opens a page with
-      two tabs, served by a bundled JRE &mdash; nothing to install.</p>
-    <div class="cols">
+    <div class="kicker">The demo &mdash; Tic-Tac-Toe</div>
+    <h1>We didn't write a verified game.<br>We wrote <span class="accent">MIPS</span>.</h1>
+    <p class="lede">The whole board packs into one register, 2 bits per cell. "Does X have three in a
+      row?" is one <code style="font-family:var(--mono)">and</code> + <code style="font-family:var(--mono)">beq</code>
+      against a precomputed mask &mdash; the exact same two instructions this deck already showed kernel-checked
+      theorems about.</p>
+    <pre class="code">li   $t9, 21        <span class="c"># cells (0, 1, 2), as X</span>
+and  $t0, $s0, $t9
+beq  $t0, $t9, x_wins   <span class="c"># every bit of the mask is set &rarr; X owns this line</span></pre>
+    <div class="cols" style="margin-top:22px">
       <div class="card green">
-        <h3>Run code</h3>
-        <p>Paste assembly, hit Run. The page pipes it to the Lean interpreter and shows exactly what the
-          <em>proven</em> semantics does: program output, halt reason, step count, all 32 registers.</p>
+        <h3>What's proven</h3>
+        <p>Every <code style="font-family:var(--mono)">and</code>/<code style="font-family:var(--mono)">beq</code>/
+          <code style="font-family:var(--mono)">or</code>/<code style="font-family:var(--mono)">sll</code>
+          this program runs has a kernel-checked theorem saying what it does &mdash; the same trust chain as
+          the rest of this deck, not a special case for the game.</p>
       </div>
-      <div class="card green">
-        <h3>Verdict</h3>
-        <p>The formal-verification result at a glance: gate status, MARS agreement, the equivalence table
-          with counterexamples for anything divergent &mdash; bug-freeness in one screen.</p>
+      <div class="card">
+        <h3>What's tested, not proven</h3>
+        <p>The specific <em>sequence</em> of those instructions that makes this a correct tic-tac-toe engine
+          has no Lean proof of its own &mdash; it's checked exhaustively instead: 34,529 board/move
+          combinations, 775 full games, zero failures. We say so in the demo itself.</p>
       </div>
     </div>
+    <p class="lede" style="margin-top:18px;font-size:15px">Also in <code style="font-family:var(--mono)">make run</code>:
+      paste any MIPS program and run it (Run code), or see the full gate/differential/equivalence verdict in one
+      screen (Verdict).</p>
   </section>
 
   <!-- 7: Roadmap -->
   <section class="slide">
     <div class="kicker">What's next</div>
-    <h1>v2 widens the semantics; <span class="accent">the bug hunt isn't dropped</span></h1>
+    <h1>The semantics grew fast; <span class="accent">one gap remains</span></h1>
     <div class="cols">
-      <div class="card">
-        <h3>In progress &mdash; v2 ISA expansion</h3>
+      <div class="card green">
+        <h3>Landed since this deck started</h3>
         <ul>
-          <li>Real branch delay slots (MIPS32 hardware behavior, not MARS's simplification)</li>
-          <li>Minimal floating point (coprocessor-1)</li>
-          <li>Exceptions/traps (coprocessor-0)</li>
-          <li>Assembler macros &mdash; the missing piece for the real sealed program</li>
+          <li>Real branch delay slots, <code style="font-family:var(--mono)">jr</code>/<code style="font-family:var(--mono)">jalr</code> (real subroutine calls), floating point, exceptions/traps</li>
+          <li>145 kernel-checked theorems, up from ~12 with real coverage</li>
+          <li>A false theorem statement found and fixed before it could mislead anyone</li>
         </ul>
       </div>
       <div class="card">
-        <h3>Deferred, not dropped</h3>
-        <p>The original plan: unseal a real, hand-written buggy MIPS program, find its arithmetic error with
-          a functional-intent spec, prove a surgical fix. It needs assembler macros v1 doesn't have.</p>
-        <p style="margin-top:10px">Once v2 lands them, the cleanroom protocol stays binding and the hunt
-          resumes on the real program &mdash; the equivalence corpus stands as the interim proof the method works.</p>
+        <h3>Still missing: assembler macros</h3>
+        <p>The one specific, unresolved blocker for unsealing a real hand-written buggy program and proving a
+          surgical fix &mdash; everything else that was "out of scope" is now real.</p>
+        <p style="margin-top:10px">Not re-pinning yet, on purpose: delay slots would silently break the
+          shipped Tic-Tac-Toe engine (checked directly &mdash; 18,356 failures against the new semantics).
+          Connect Four is next in line once that rewrite happens.</p>
       </div>
     </div>
   </section>
