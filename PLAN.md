@@ -14,8 +14,8 @@ program with a proof that behavior is unchanged.
    (40 instructions + syscall), proven against spec S (the MIPS language,
    educational dialect per SPEC-NOTES §9). Differential suite vs MARS on an
    *independent* corpus (our own test programs — never the sealed asset).
-2. **Act 2 — Unseal & detect. SUPERSEDED, see note below.** Originally: the
-   sealed CS47 program ("works" but has a math error deep in its logic)
+2. **Act 2 — Unseal & detect. DEFERRED until Semantic MIPS v2 (assembler
+   macros), see note below.** The plan is unchanged: the sealed CS47 program ("works" but has a math error deep in its logic)
    enters context only after gate G1; detect via Lean (functional-intent
    spec → counterexample), corroborate with differential runs, pinpoint the
    faulty instruction(s).
@@ -28,10 +28,10 @@ program with a proof that behavior is unchanged.
    semantics → real bug found by Lean → surgical fix proven → LLM optimization
    proven equivalent. Plus the MARS lw/sw sign-extension finding as a bonus.
 
-## Cleanroom protocol (BINDING, SUPERSEDED)
+## Cleanroom protocol (BINDING)
 
-Kept verbatim as the historical record; superseded by the note immediately
-below.
+Kept verbatim. Unseal is deferred until v2 per the note below; nothing in it
+is rescinded — the asset stays sealed until then.
 
 - **SEALED asset:** `https://github.com/rShyvers/CS47-Final-Project` — the CS47
   final-project MIPS program(s). Contains the real math bug; it is the Act 2
@@ -47,14 +47,16 @@ below.
 - **Functional intent** of the sealed program is spec-level information and may
   be provided by the user in their own words at any time (see Open items).
 
-### CS47 dropped: replaced by a self-written equivalence corpus
+### CS47 bug hunt: deferred to v2, with an interim equivalence corpus
 
 CS47 needs assembler macros to even assemble, and `docs/spec/SPEC-NOTES.md`
 §9 puts macros explicitly out of v1 scope — `Asm.lean` cannot assemble it at
-all, so Act 2 as planned is not possible against this semantics. Act 2
-(and by extension Act 3's "prove a fix" framing) is dropped.
+all, so Act 2 as planned is not possible against the v1 semantics. **Act 2 is
+deferred, not dropped: it runs once Semantic MIPS v2 implements assembler
+macros** (the cleanroom protocol above stays binding until then). Act 3's
+"prove a fix" framing is deferred with it.
 
-In its place, [rShyvers/semantic-mips](https://github.com/rShyvers/semantic-mips)
+In the meantime, [rShyvers/semantic-mips](https://github.com/rShyvers/semantic-mips)
 now has `tests/equiv/` + `EquivHarness.lean`: 7 equivalence claims across 12
 self-written `.asm` programs, each pairing a direct arithmetic instruction
 (`mult`, `div`, `sub`) against a bit-shift/bitwise equivalent (the kind of
@@ -72,8 +74,10 @@ each in its own git worktree) before `EquivHarness.lean` was written as the
 permanent, CI-running version of that same check. See that repo's README
 ("Equivalence corpus") for the full case table.
 
-Acts 4–5 (LLM optimization + demo) still stand, now applied to this
-equivalence corpus's "correct" variants rather than a fixed CS47.
+Acts 4–5 (LLM optimization + demo) still stand in the interim, applied to
+this equivalence corpus's "correct" variants; if v2 lands before the
+deadline, Acts 2–3 run against CS47 as originally planned and the corpus
+stays as supporting evidence.
 
 ## Build state
 
