@@ -1,0 +1,71 @@
+{
+  "program": "equivalence corpus (tests/equiv/, 7 claims across 12 programs)",
+  "status": "verified",
+  "headline": "Semantics verified against its spec and MARS 4.5; all 7 equivalence claims behaved as claimed, including the 2 deliberately buggy variants.",
+  "semantic_mips": {
+    "repo": "rShyvers/semantic-mips",
+    "commit": "663594c"
+  },
+  "gates": [
+    {
+      "name": "lake check",
+      "status": "pass",
+      "detail": "kernel replay of the default target; axioms: propext, Classical.choice, Quot.sound"
+    },
+    {
+      "name": "lake comparator",
+      "status": "pass",
+      "detail": "8-theorem trusted surface checked against comparator.json"
+    }
+  ],
+  "differential": {
+    "oracle": "MARS 4.5",
+    "total": 12,
+    "passed": 12
+  },
+  "equivalence": [
+    {
+      "name": "mul_pow2",
+      "claim": "x*8 via mult/mflo vs sll by 3",
+      "status": "equivalent"
+    },
+    {
+      "name": "mul_const5",
+      "claim": "x*5 via mult/mflo vs (x<<2)+x (addu, non-trapping)",
+      "status": "equivalent"
+    },
+    {
+      "name": "div_pow2_buggy",
+      "claim": "x/4 via div/mflo vs plain sra (rounds toward -inf, not zero)",
+      "status": "divergent",
+      "expected": true,
+      "counterexample": { "input": -1, "base": 0, "variant": -1 }
+    },
+    {
+      "name": "div_pow2_correct",
+      "claim": "x/4 via div/mflo vs bias-corrected sra",
+      "status": "equivalent"
+    },
+    {
+      "name": "mod_pow2_buggy",
+      "claim": "x%4 via div/mfhi vs plain andi mask (always non-negative)",
+      "status": "divergent",
+      "expected": true,
+      "counterexample": { "input": -1, "base": -1, "variant": 3 }
+    },
+    {
+      "name": "mod_pow2_correct",
+      "claim": "x%4 via div/mfhi vs a0 - (bias-corrected quotient)*4",
+      "status": "equivalent"
+    },
+    {
+      "name": "sub_twos_complement",
+      "claim": "a0-a1 via subu vs nor+addiu+addu (two's-complement negate-and-add)",
+      "status": "equivalent"
+    }
+  ],
+  "run": {
+    "exit_code": 0,
+    "output": "SUMMARY: all 7 equivalence cases behaved as claimed"
+  }
+}

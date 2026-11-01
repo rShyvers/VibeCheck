@@ -51,9 +51,10 @@ $(JAVA): $(ARCHIVE)
 # runtime has no compiler). Recompile after changing sources with a system JDK:
 #
 #     make compile
+# --release 21: any modern JDK produces classes the bundled JRE 21 can run.
 compile:
 	@command -v javac > /dev/null || { echo "error: 'javac' not found. Install a JDK (e.g. 'brew install openjdk' or 'apt install openjdk-21-jdk') to recompile."; exit 1; }
-	javac -d out $(wildcard src/*.java)
+	javac --release 21 -d out $(wildcard src/*.java)
 
 run: install
 	$(JAVA) -cp out Main
