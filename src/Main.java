@@ -38,7 +38,8 @@ public class Main {
     static final String INDEX_PATH = "web/index.html";
     static final String REAL_VERDICT_PATH = "out/verdict.json";
     static final String SAMPLE_VERDICT_PATH = "web/sample-verdict.json";
-    static final String DEFAULT_MIPSRUN_PATH = "semantic-mips/.lake/build/bin/MipsRun";
+    static final String VENDORED_MIPSRUN_PATH = ".mipsrun/MipsRun";
+    static final String BUILT_MIPSRUN_PATH = "semantic-mips/.lake/build/bin/MipsRun";
     static final long MIPSRUN_TIMEOUT_SECONDS = 10;
     /** One thread per pipe end, so stdin and stdout never wait on each other. */
     static final java.util.concurrent.ExecutorService PIPE_THREADS = Executors.newCachedThreadPool(r -> {
@@ -120,12 +121,25 @@ public class Main {
         }
     }
 
-    /** Path of the MipsRun interpreter: env VIBE_CHECK_MIPSRUN, else the lake build output. */
+    /**
+     * Path of the MipsRun interpreter, checked in order:
+     *   1. env VIBE_CHECK_MIPSRUN (explicit override, e.g. for testing a
+     *      different build).
+     *   2. .mipsrun/MipsRun -- a prebuilt binary `make install` vendors in
+     *      for supported platforms (currently linux-x64), needing no Lean
+     *      toolchain at all, same idea as the bundled JRE.
+     *   3. semantic-mips/.lake/build/bin/MipsRun -- what `make build-semantics`
+     *      produces (needs elan/lake); the fallback for platforms without a
+     *      vendored binary, or for building a different pin locally.
+     */
     static Path mipsRunPath() {
         String override = System.getenv("VIBE_CHECK_MIPSRUN");
         if (override != null && !override.isEmpty()) return Path.of(override);
         boolean windows = System.getProperty("os.name", "").startsWith("Windows");
-        return Path.of(windows ? DEFAULT_MIPSRUN_PATH + ".exe" : DEFAULT_MIPSRUN_PATH);
+        String suffix = windows ? ".exe" : "";
+        Path vendored = Path.of(VENDORED_MIPSRUN_PATH + suffix);
+        if (Files.isRegularFile(vendored) && Files.isExecutable(vendored)) return vendored;
+        return Path.of(BUILT_MIPSRUN_PATH + suffix);
     }
 
     /**

@@ -27,9 +27,10 @@ The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is 
 
 ## What you're looking at
 
-`make run` opens the **verdict view** (a local web page, no install), with two tabs:
+`make run` opens the **verdict view** (a local web page, no install), with three tabs:
 
-- **Run code** — paste MIPS assembly and hit Run. The server pipes it to `MipsRun`, a small executable built from the Lean semantics (`semantic-mips/.lake/build/bin/MipsRun`), and the page shows what the verified machine does: program output, halt reason, step count, and all 32 registers. Until that binary is built, the tab says so — build it with `make build-semantics` (needs [elan](https://github.com/leanprover/elan); fetches the prebuilt mathlib cache first, then compiles).
+- **Run code** — paste MIPS assembly and hit Run. The server pipes it to `MipsRun`, the real interpreter built from the Lean semantics, and the page shows what the verified machine does: program output, halt reason, step count, and all 32 registers. **On Linux x86_64, this works immediately after `make install`** — see "The MipsRun interpreter" below. On other platforms, the tab says so until you build one yourself with `make build-semantics` (needs [elan](https://github.com/leanprover/elan)).
+- **Tic-Tac-Toe** — a playable game whose entire rules engine (move validation, win/draw detection, the opponent's strategy) is a MIPS program run through the same `/run` endpoint as Run code, unchanged — the browser holds only the board. A "show the MIPS program for this move" panel reveals exactly what ran. See PLAN.md for how it was built and tested (34,529 board/move combinations, zero failures).
 - **Verdict** — the formal-verification verdict of the MIPS work: proof gates, differential agreement against MARS 4.5, and equivalence claims with counterexamples, so bug-freeness is visible at a glance. The tab loads `/verdict.json`; until a real Lean harness run writes `out/verdict.json`, it shows the bundled sample verdict (the true v1 equivalence-corpus result: 5 real equivalences plus 2 deliberately buggy variants, caught).
 
 ## What's trusted
@@ -47,6 +48,14 @@ Current pin: `abf580d` (their `feature/mips-run`, PR #3) — the first commit th
 **Known limitation, carried from their side:** `MipsRun` wraps `Asm.assemble`/`initialState`/`Step.run` only, so `.data` segments are never copied into memory — a program that loads a string with `la`+`syscall 4` will read all-zero memory instead. The bundled sample program was written to avoid this (it prints via register values only); keep that in mind for any future sample/demo program.
 
 The demo always runs against the **pinned** commit, never a moving branch. To build against a newer semantics: `cd semantic-mips && git fetch`, check out the commit you want, then from the repo root commit the updated pin (`git add semantic-mips`).
+
+## The MipsRun interpreter
+
+`MipsRun` (the executable behind the Run code and Tic-Tac-Toe tabs) is vendored pre-built for **linux-x64** at `vendor/mipsrun/linux-x64/MipsRun`, built from the pinned commit above, same idea as the bundled JRE: a stripped, statically-linked-for-Lean binary that needs only glibc at runtime, confirmed to run correctly with no Lean toolchain present at all (checked in a fully scrubbed environment — no `elan`/`lake`/`lean` reachable, not even on `PATH`). `make install` copies it into `.mipsrun/MipsRun` automatically, so on Linux x86_64, `make install && make run` gives you a fully working Run code tab and a playable Tic-Tac-Toe immediately, straight from a fresh clone — no Lean toolchain required.
+
+On other platforms (no vendored binary yet), `make install` says so plainly and the tabs show an honest "interpreter not built" state until you run `make build-semantics` (needs elan/lake; fetches the Mathlib cache, then builds).
+
+To refresh the vendored binary after re-pinning: `cd semantic-mips && lake exe cache get && lake build MipsRun`, then copy `.lake/build/bin/MipsRun` to `vendor/mipsrun/linux-x64/MipsRun` (stripping it first with `strip` is optional but keeps the repo smaller — the committed copy is ~3 MB stripped vs ~5 MB unstripped).
 
 ## Verification gates
 
