@@ -173,7 +173,19 @@
   .ttt-cell.o { color: var(--amber); }
   .ttt-side { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
   .ttt-status { font-size: 22px; font-weight: 700; }
-  .ttt-status.busy { color: var(--dim); }
+  .ttt-status.busy { color: var(--dim); font-family: var(--mono); font-size: 15px; font-weight: 600; }
+  .ttt-status .prompt { color: var(--green); margin-right: 8px; }
+  .ttt-status .cursor { color: var(--green); margin-left: 4px; animation: ttt-blink 1s steps(1) infinite; }
+  @keyframes ttt-blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .ttt-status .cursor { animation: none; } }
+  .ttt-total { font-family: var(--mono); font-size: 13px; color: var(--dim); background: #0d1320; border: 1px solid var(--panel-edge); border-radius: 8px; padding: 8px 12px; }
+  .ttt-total b { color: var(--green); font-size: 20px; font-weight: 700; margin-left: 6px; }
+  .ttt-run-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ttt-run-head h2 { margin: 0; }
+  .ttt-run-head .run-status { margin: 0; }
+  pre.run.ttt-log { max-height: 220px; overflow-y: auto; color: var(--text); }
+  pre.run.ttt-log.empty, .ttt-regs-empty { color: var(--dim); font-style: italic; }
+  .ttt-regs-empty { font-family: var(--mono); font-size: 12.5px; }
   .ttt-status.win { color: var(--green); }
   .ttt-status.lose { color: var(--red); }
   .ttt-status.draw { color: var(--amber); }
@@ -245,6 +257,7 @@ main:
         <div class="ttt-side">
           <div class="ttt-status" id="ttt-status" aria-live="polite"></div>
           <div class="ttt-legend">X = you · O = computer</div>
+          <div class="ttt-total">Total MIPS instructions executed this game:<b id="ttt-total">0</b></div>
           <button class="run-btn" id="ttt-new" type="button">New game</button>
         </div>
       </div>
@@ -254,8 +267,19 @@ main:
         interpreter, not hardcoded.</p>
       <p class="ttt-note">What is checked and what is tested: the MIPS semantics this runs on (<code style="font-family:var(--mono)">step</code>/decode) passes kernel-checked verification gates against its own written spec and is differentially validated against real MARS 4.5 (see the Verdict tab). This game program itself has no such proof — it was tested exhaustively instead: all 34,529 board/move combinations and 775 full games, with no failures.</p>
     </div>
-    <details class="card ttt-asm" id="ttt-asm-details">
-      <summary>Show the MIPS program for this move</summary>
+    <div class="card ttt-card">
+      <div class="ttt-run-head">
+        <h2>Registers after this move</h2>
+        <div class="run-status" id="ttt-reg-status"></div>
+      </div>
+      <div id="ttt-regs"></div>
+    </div>
+    <div class="card ttt-card">
+      <h2>Execution log (one interpreter run per move)</h2>
+      <pre class="run ttt-log" id="ttt-log" aria-live="polite"></pre>
+    </div>
+    <details class="card ttt-asm" id="ttt-asm-details" open>
+      <summary>The MIPS program for this move</summary>
       <h2>Sent to /run</h2>
       <pre class="run" id="ttt-asm"></pre>
       <h2>Program output</h2>
@@ -968,6 +992,15 @@ let tttStatus = 0;
 let tttBusy = false;
 // The cell the human clicked for the move in flight, or null.
 let tttPendingCell = null;
+// Interpreter runs in this game: each is one /run reply that reports a step count.
+let tttRunCount = 0;
+// Sum of the `steps` field over every run in this game.
+let tttTotalSteps = 0;
+// Log lines for the runs in this game, oldest first, at most TTT_LOG_MAX of them.
+let tttRunLog = [];
+// The latest run in this game as { move, data }, or null before the first move.
+let tttLastRun = null;
+const TTT_LOG_MAX = 20;
 
 const TTT_STATUS_TEXT = { 0: "Your move", 1: "You win!", 2: "The computer wins.", 3: "Draw." };
 const TTT_STATUS_CLASS = { 0: "", 1: "win", 2: "lose", 3: "draw" };
@@ -1005,9 +1038,49 @@ function tttRender() {
     btn.setAttribute("aria-label", `cell ${i + 1}: ` + (v === 1 ? "X" : v === 2 ? "O" : "empty"));
   });
   const status = document.getElementById("ttt-status");
-  status.textContent = tttBusy ? "Running the MIPS program…" : TTT_STATUS_TEXT[tttStatus];
+  if (tttBusy) {
+    // Shown only while the /run request is actually in flight; no added delay.
+    status.innerHTML = `<span class="prompt">&gt;</span>running the MIPS program<span class="cursor" aria-hidden="true">▋</span>`;
+  } else {
+    status.textContent = TTT_STATUS_TEXT[tttStatus];
+  }
   status.className = "ttt-status " + (tttBusy ? "busy" : TTT_STATUS_CLASS[tttStatus]);
   document.getElementById("ttt-new").disabled = tttBusy;
+  tttRenderRuns();
+}
+
+// Shows the real interpreter data for this game: the step total, the run log,
+// and the registers from the latest run's reply.
+function tttRenderRuns() {
+  document.getElementById("ttt-total").textContent = String(tttTotalSteps);
+  const log = document.getElementById("ttt-log");
+  log.textContent = tttRunLog.length ? tttRunLog.join("\n") : TTT_NO_MOVE_YET;
+  log.classList.toggle("empty", tttRunLog.length === 0);
+  log.scrollTop = log.scrollHeight;
+  const regStatus = document.getElementById("ttt-reg-status");
+  const regs = document.getElementById("ttt-regs");
+  if (tttLastRun === null) {
+    regStatus.innerHTML = "";
+    regs.innerHTML = `<div class="ttt-regs-empty">${esc(TTT_NO_MOVE_YET)}</div>`;
+    return;
+  }
+  const r = tttLastRun.data;
+  const reasonClass = r.halt_reason === "exit" ? "ok" : r.halt_reason ? "trap" : "open";
+  regStatus.innerHTML = `<div><span>move</span> <b>${esc(tttLastRun.move)}</b></div>` +
+    `<div><span>steps</span> <b>${esc(r.steps)}</b></div>` +
+    `<div><span>halt</span> <b class="${reasonClass}">${esc(r.halt_reason || "none")}</b></div>`;
+  regs.innerHTML = r.registers && typeof r.registers === "object"
+    ? `<div class="reg-grid">` + REG_NAMES.map(name => regCell(name, r.registers[name])).join("") + `</div>`
+    : `<div class="ttt-regs-empty">(the reply had no registers)</div>`;
+}
+
+// Records one interpreter run from its /run reply. `cell` is the clicked cell (0-8).
+function tttRecordRun(cell, data) {
+  tttRunCount += 1;
+  tttTotalSteps += data.steps;
+  tttLastRun = { move: tttRunCount, data };
+  tttRunLog.push(`move ${tttRunCount} (cell ${cell + 1}) -> ${data.steps} steps, halt=${data.halt_reason || "none"}`);
+  if (tttRunLog.length > TTT_LOG_MAX) tttRunLog = tttRunLog.slice(-TTT_LOG_MAX);
 }
 
 // Sends one human move to the MIPS program and shows the board it prints back.
@@ -1032,6 +1105,7 @@ async function tttMove(cell) {
     let data = null;
     try { data = JSON.parse(text); } catch (_) { /* reported below */ }
     outputPre.textContent = data && typeof data.output === "string" ? data.output : text;
+    if (data && typeof data === "object" && typeof data.steps === "number") tttRecordRun(cell, data);
     if (resp.status === 503) {
       message.innerHTML = NOT_BUILT_HTML;
     } else if (!resp.ok) {
@@ -1077,6 +1151,10 @@ function tttNewGame() {
   if (tttBusy) return;
   tttBoard = [0, 0, 0, 0, 0, 0, 0, 0, 0];
   tttStatus = 0;
+  tttRunCount = 0;
+  tttTotalSteps = 0;
+  tttRunLog = [];
+  tttLastRun = null;
   document.getElementById("ttt-message").innerHTML = "";
   document.getElementById("ttt-asm").textContent = TTT_NO_MOVE_YET;
   document.getElementById("ttt-output").textContent = TTT_NO_MOVE_YET;
