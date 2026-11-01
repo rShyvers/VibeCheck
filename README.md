@@ -25,6 +25,10 @@ run.bat
 
 The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is committed and `make run` works as-is. After changing sources, recompile with any system JDK via `make compile` (Windows: `javac -d out src\*.java`) and commit the result.
 
+## What you're looking at
+
+`make run` opens the **verdict view** (a local web page, no install): it renders the formal-verification verdict of the MIPS work — proof gates, differential agreement against MARS 4.5, and equivalence claims with counterexamples — so bug-freeness is visible at a glance. The page loads `/verdict.json`; until a real Lean harness run writes `out/verdict.json`, it shows the bundled sample verdict (the true v1 equivalence-corpus result: 5 real equivalences plus 2 deliberately buggy variants, caught).
+
 ## What's trusted
 
 - **Bundled runtime:** Eclipse Temurin OpenJDK 21 (JRE), one archive per platform in `vendor/jre/`. This is the only external dependency; nothing is downloaded at install time.
