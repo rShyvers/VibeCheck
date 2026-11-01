@@ -137,6 +137,7 @@
       <span class="chip pass">12/12 vs MARS 4.5</span>
       <span class="chip pass">7/7 equivalence claims</span>
     </div>
+    <p style="margin-top:14px;color:#46536a;font-size:13px">Two Lean verification gates, a real simulator as oracle — explained over the next few slides.</p>
   </section>
 
   <!-- 2: What step() actually is -->
@@ -197,8 +198,8 @@
         <h3>Two proof gates</h3>
         <p><code style="font-family:var(--mono);font-size:13px">lake check</code> replays every proof
           through Lean's own kernel &mdash; one unfinished step anywhere fails it.
-          <code style="font-family:var(--mono);font-size:13px">lake comparator</code> checks a named
-          8-theorem surface against a trusted config, one claim from each kind the spec makes.</p>
+          <code style="font-family:var(--mono);font-size:13px">lake comparator</code> checks 8 of the 21
+          theorems from the last slide &mdash; a trusted surface, one claim from each kind the spec makes.</p>
         <p style="margin-top:10px;color:var(--dim);font-size:13px">Allowed axioms, both gates:
           <code style="font-family:var(--mono)">propext</code>,
           <code style="font-family:var(--mono)">Classical.choice</code>,
