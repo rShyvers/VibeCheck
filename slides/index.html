@@ -140,7 +140,23 @@
     <p style="margin-top:14px;color:#46536a;font-size:13px">Two Lean verification gates, a real simulator as oracle — explained over the next few slides.</p>
   </section>
 
-  <!-- 2: What step() actually is -->
+  <!-- 2: What is MIPS -->
+  <section class="slide">
+    <div class="kicker">Before the proofs &mdash; the basics</div>
+    <h1>MIPS: the CPU's <span class="accent">actual vocabulary</span></h1>
+    <p class="lede">A real instruction set &mdash; the fixed list of tiny commands a processor actually
+      understands, decades old, used in real routers, game consoles, and embedded devices, and taught in
+      almost every computer architecture class because the list is small and regular. A MIPS
+      <em>program</em> is just a long sequence of these commands, each one exactly 32 bits, run one at a time.</p>
+    <pre class="code">add  $t0, $t1, $t2     <span class="c"># put $t1 + $t2 into $t0 &mdash; that's the whole instruction</span>
+beq  $t0, $zero, done  <span class="c"># if $t0 equals zero, jump to the label "done"</span>
+syscall                <span class="c"># ask the machine to do something: print, exit, ...</span></pre>
+    <p class="lede" style="margin-top:18px;font-size:16px">That's the whole idea: tiny, fixed commands,
+      executed in order. Our question for the rest of this deck &mdash; does a from-scratch implementation
+      of this machine actually behave the way it's supposed to?</p>
+  </section>
+
+  <!-- 3: What step() actually is -->
   <section class="slide">
     <div class="kicker">The machine, concretely</div>
     <h1>One instruction in, one new state out</h1>
@@ -161,11 +177,11 @@
     </div>
   </section>
 
-  <!-- 3: The spec claims, concretely -->
+  <!-- 4: The spec claims, concretely -->
   <section class="slide">
     <div class="kicker">What's actually proven</div>
     <h1>Not "it runs" &mdash; <span class="accent">theorems about every path</span></h1>
-    <p class="lede">21 theorems about <code style="font-family:var(--mono)">step</code>, each a precise claim
+    <p class="lede">30 theorems about <code style="font-family:var(--mono)">step</code>, each a precise claim
       checked for <em>every</em> input, not a handful of test cases. Three examples:</p>
     <div class="cols three">
       <div class="card">
@@ -189,7 +205,7 @@
     </div>
   </section>
 
-  <!-- 4: Gates + differential, together -->
+  <!-- 5: Gates + differential, together -->
   <section class="slide">
     <div class="kicker">How we know, not just assert</div>
     <h1>Checked by the kernel. Checked against <span class="accent">reality</span>.</h1>
@@ -198,7 +214,7 @@
         <h3>Two proof gates</h3>
         <p><code style="font-family:var(--mono);font-size:13px">lake check</code> replays every proof
           through Lean's own kernel &mdash; one unfinished step anywhere fails it.
-          <code style="font-family:var(--mono);font-size:13px">lake comparator</code> checks 8 of the 21
+          <code style="font-family:var(--mono);font-size:13px">lake comparator</code> checks 8 of the 30
           theorems from the last slide &mdash; a trusted surface, one claim from each kind the spec makes.</p>
         <p style="margin-top:10px;color:var(--dim);font-size:13px">Allowed axioms, both gates:
           <code style="font-family:var(--mono)">propext</code>,
@@ -215,7 +231,7 @@
     </div>
   </section>
 
-  <!-- 5: The bug hunt -->
+  <!-- 6: The bug hunt -->
   <section class="slide">
     <div class="kicker">Finding a real bug</div>
     <h1>The verification <span class="accent-red">caught a planted bug</span></h1>
@@ -233,7 +249,7 @@ mod_pow2_buggy:  x%4 via div/mfhi  <span class="c">vs</span>  plain andi mask
       every signed 32-bit input, not just the ones a human thought to try.</p>
   </section>
 
-  <!-- 6: The demo -->
+  <!-- 7: The demo -->
   <section class="slide">
     <div class="kicker">The demo &mdash; Tic-Tac-Toe</div>
     <h1>We didn't write a verified game.<br>We wrote <span class="accent">MIPS</span>.</h1>
@@ -256,7 +272,7 @@ beq  $t0, $t9, x_wins   <span class="c"># every bit of the mask is set &rarr; X 
         <h3>What's tested, not proven</h3>
         <p>The specific <em>sequence</em> of those instructions that makes this a correct tic-tac-toe engine
           has no Lean proof of its own &mdash; it's checked exhaustively instead: 34,529 board/move
-          combinations, 775 full games, zero failures. We say so in the demo itself.</p>
+          combinations, 489 possible full games, zero failures. We say so in the demo itself.</p>
       </div>
     </div>
     <p class="lede" style="margin-top:18px;font-size:15px">Also in <code style="font-family:var(--mono)">make run</code>:
@@ -264,7 +280,7 @@ beq  $t0, $t9, x_wins   <span class="c"># every bit of the mask is set &rarr; X 
       screen (Verdict).</p>
   </section>
 
-  <!-- 7: Close -->
+  <!-- 8: Close -->
   <section class="slide">
     <div class="kicker">Thank you</div>
     <h1>Verified semantics.<br>A real bug, caught.<br>In your browser.</h1>
