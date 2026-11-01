@@ -1,0 +1,3 @@
+[submodule "semantic-mips"]
+	path = semantic-mips
+	url = git@github.com:rShyvers/semantic-mips.git
