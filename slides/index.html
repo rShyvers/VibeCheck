@@ -125,11 +125,12 @@
 
   <!-- 1: Title -->
   <section class="slide active">
-    <div class="kicker">Formal verification &middot; <b>real bugs</b> &middot; a browser demo</div>
-    <h1>VibeCheck</h1>
-    <p class="lede">A small-step semantics of MIPS, written and proven in Lean 4 &mdash; kernel-checked against its own
-      spec, differentially validated against a real simulator, and put behind a page where anyone can paste
-      assembly and watch the <span class="accent">verified machine</span> run it.</p>
+    <div class="kicker">Semantic MIPS &middot; a MIPS computer, <b>defined and proven</b> in Lean 4</div>
+    <h1>What does this machine<br>actually <span class="accent">do</span>?</h1>
+    <p class="lede">Not a simulator you trust by reputation. A mathematical function &mdash;
+      <code style="font-family:var(--mono)">step : Program &rarr; State &rarr; StepResult</code> &mdash; that says
+      exactly what every one of 40 MIPS instructions does to registers, memory, and the program counter,
+      with a machine-checked proof that it matches a written spec.</p>
     <div class="chip-list">
       <span class="chip pass">lake check — green</span>
       <span class="chip pass">lake comparator — green</span>
@@ -138,71 +139,77 @@
     </div>
   </section>
 
-  <!-- 2: The story -->
+  <!-- 2: What step() actually is -->
   <section class="slide">
-    <div class="kicker">The story</div>
-    <h1>Spec &rarr; proof &rarr; <span class="accent">real bug</span> &rarr; browser</h1>
-    <p class="lede">We didn't verify a toy. We built small-step MIPS semantics in Lean, proved it matches a
-      written spec, checked that spec against a real simulator on an independent test corpus &mdash; then used
-      exactly that machinery to catch two deliberately planted arithmetic bugs before they could pass as correct.</p>
-    <div class="chain">
-      <div class="node spec">MIPS spec (docs)</div>
-      <span class="arrow">&rarr;</span>
-      <div class="node step">step() in Lean</div>
-      <span class="arrow">&rarr;</span>
-      <div class="node gate">kernel-checked theorems</div>
-      <span class="arrow">&rarr;</span>
-      <div class="node gate">MARS 4.5 (oracle)</div>
-      <span class="arrow">&rarr;</span>
-      <div class="node step">bug hunt</div>
+    <div class="kicker">The machine, concretely</div>
+    <h1>One instruction in, one new state out</h1>
+    <p class="lede"><code style="font-family:var(--mono)">step</code> is a single pattern match over 40
+      instruction shapes. Every case is a few lines that say exactly what real MIPS32 hardware does &mdash;
+      no simulator-specific shortcuts hiding inside.</p>
+    <pre class="code">step p s  <span class="c">=</span>  <span class="c">match</span> fetch p s.pc <span class="c">with</span>
+  <span class="c">|</span> add rs rt rd  <span class="c">=&gt;</span>
+      <span class="c">let</span> sum := reg[rs] + reg[rt]
+      <span class="c">if</span> signedOverflow sum <span class="c">then</span> halt .arithmeticOverflow
+      <span class="c">else</span> next { reg[rd] := sum, pc := pc + 4 }</pre>
+    <div class="chip-list">
+      <span class="chip">arithmetic &amp; logic — add, sub, mult, div, and/or/xor, slt</span>
+      <span class="chip">shifts — sll, srl, sra</span>
+      <span class="chip">memory — lw/sw, lb/lbu/sb, lh/lhu/sh</span>
+      <span class="chip">control flow — beq, bne, blez, bgtz, j, jal</span>
+      <span class="chip">syscall</span>
     </div>
   </section>
 
-  <!-- 3: Trust chain / gates -->
+  <!-- 3: The spec claims, concretely -->
   <section class="slide">
-    <div class="kicker">Verification</div>
-    <h1>Two gates decide what "done" means</h1>
+    <div class="kicker">What's actually proven</div>
+    <h1>Not "it runs" &mdash; <span class="accent">theorems about every path</span></h1>
+    <p class="lede">21 theorems about <code style="font-family:var(--mono)">step</code>, each a precise claim
+      checked for <em>every</em> input, not a handful of test cases. Three examples:</p>
+    <div class="cols three">
+      <div class="card">
+        <h3>add_overflow_not_wrapped</h3>
+        <p style="font-size:14px">A real CPU traps on signed overflow instead of silently wrapping.
+          Proof: <code style="font-family:var(--mono);font-size:12px">add</code> on
+          <code style="font-family:var(--mono);font-size:12px">0x7fffffff + 1</code> can never reach a
+          next state &mdash; only halt.</p>
+      </div>
+      <div class="card">
+        <h3>zero_write_not_observable</h3>
+        <p style="font-size:14px">Register <code style="font-family:var(--mono);font-size:12px">$zero</code>
+          is hardwired. Proof: for <em>any</em> value written to it, reading it back is never that value.</p>
+      </div>
+      <div class="card">
+        <h3>beq_taken_spec</h3>
+        <p style="font-size:14px">Branch targets follow the MIPS rule exactly:
+          <code style="font-family:var(--mono);font-size:12px">PC_next + (offset &lt;&lt; 2)</code>,
+          proven equal to what <code style="font-family:var(--mono);font-size:12px">step</code> actually computes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3: Gates + differential, together -->
+  <section class="slide">
+    <div class="kicker">How we know, not just assert</div>
+    <h1>Checked by the kernel. Checked against <span class="accent">reality</span>.</h1>
     <div class="cols">
       <div class="card">
-        <h3>lake check</h3>
-        <p>Rebuilds the default target and replays it through Lean's own kernel. All-or-nothing: one
-          unfinished proof anywhere fails the whole gate.</p>
-        <p style="margin-top:10px;color:var(--dim)">Covers: Word, Types, State, Instruction, Asm, Step &mdash;
-          a sorry-free <code style="font-family:var(--mono)">Checked</code> target.</p>
+        <h3>Two proof gates</h3>
+        <p><code style="font-family:var(--mono);font-size:13px">lake check</code> replays every proof
+          through Lean's own kernel &mdash; one unfinished step anywhere fails it.
+          <code style="font-family:var(--mono);font-size:13px">lake comparator</code> checks a named
+          8-theorem surface against a trusted config, one claim from each kind the spec makes.</p>
+        <p style="margin-top:10px;color:var(--dim);font-size:13px">Allowed axioms, both gates:
+          <code style="font-family:var(--mono)">propext</code>,
+          <code style="font-family:var(--mono)">Classical.choice</code>,
+          <code style="font-family:var(--mono)">Quot.sound</code>. Nothing else &mdash; no silent
+          <code style="font-family:var(--mono)">sorry</code>.</p>
       </div>
       <div class="card">
-        <h3>lake comparator</h3>
-        <p>Checks a named list of theorems against a trusted config, theorem-by-theorem &mdash; the right
-          tool for a spec file that mixes finished and unfinished proofs.</p>
-        <p style="margin-top:10px;color:var(--dim)">8-theorem trusted surface, one from each kind of claim
-          the spec makes: arithmetic, overflow, branch, jump, memory, bad-output rejection, invariant.</p>
-      </div>
-    </div>
-    <div class="chip-list">
-      <span class="chip">allowed axioms</span>
-      <span class="chip pass">propext</span>
-      <span class="chip pass">Classical.choice</span>
-      <span class="chip pass">Quot.sound</span>
-      <span class="chip fail">anything else — fails both gates</span>
-    </div>
-  </section>
-
-  <!-- 4: Differential -->
-  <section class="slide">
-    <div class="kicker">Validation against reality</div>
-    <h1>The spec isn't just internally consistent &mdash;<br>it matches a <span class="accent">real simulator</span></h1>
-    <p class="lede">MARS 4.5 is the test environment, never the spec itself. 12 self-written programs
-      covering the full v1 instruction set run through both our Lean interpreter and real MARS; every
-      output is compared.</p>
-    <div class="stat-row">
-      <div class="stat">
-        <div class="bignum">12/12</div>
-        <div class="label">programs agree with MARS 4.5 &mdash; arithmetic, branches, jumps, memory, syscalls</div>
-      </div>
-      <div class="stat">
-        <div class="bignum">3</div>
-        <div class="label">documented <code style="font-family:var(--mono)">sorry</code>s, each with a closed
-          weaker substitute and a concrete checked example &mdash; nothing hidden</div>
+        <h3>A real simulator as oracle</h3>
+        <p>MARS 4.5 is the test environment, never the spec. 12 self-written programs covering the full
+          instruction set run through both the Lean interpreter and real MARS.</p>
+        <p style="margin-top:10px;color:var(--green);font-weight:700;font-size:20px">12/12 agree.</p>
       </div>
     </div>
   </section>
