@@ -47,7 +47,12 @@ program with a proof that behavior is unchanged.
 
 The Lean implementation (`step` + its proven spec) is referred to as
 **Semantic MIPS** elsewhere in the docs (see root README "Verification
-gates"); this table tracks its build waves.
+gates"); this table tracks its build waves. As of the cleanup pass,
+Semantic MIPS lives in its own repo, [rShyvers/semantic-mips]
+(https://github.com/rShyvers/semantic-mips) — extracted out of this one,
+history preserved, so it can be read and reviewed as just the semantics,
+with no VibeCheck-specific scaffolding around it. This table is kept here
+as the historical build log; current status lives in that repo's README.
 
 | Wave | Modules | Status |
 |---|---|---|
@@ -56,7 +61,7 @@ gates"); this table tracks its build waves.
 | 2 | Step.lean (+ Sim.run loop) | ✅ merged PR #1 + foundation fix a6d63ae (syscall mnemonic in Asm, syscall-1 no-newline, SPEC-NOTES endianness correction) |
 | 3a | DiffHarness (exe: Sim vs spawned MARS) | ✅ merged PR #2 (12/12 corpus PASS vs real MARS, independently re-run) |
 | 3b | Specs layer (spec S statements, satisfiable examples, bad-output rejections) | ✅ merged PR #3 (21 closed theorems, 3 documented sorries with closed weaker substitutes) |
-| — | Comparator file + `lake check`/comparator gate | ✅ `lake comparator` exits 0 on an 8-theorem trusted surface (`MipsSim/comparator.json`, axioms propext/Classical.choice/Quot.sound); `lake check` exits 0 on a new sorry-free `Checked` default target (`MipsSim/Checked.lean`) that excludes `StepSpec`'s 3 documented sorries by design — see README "Verification gates" |
+| — | Comparator file + `lake check`/comparator gate | ✅ `lake comparator` exits 0 on an 8-theorem trusted surface (`comparator.json`, axioms propext/Classical.choice/Quot.sound); `lake check` exits 0 on a new sorry-free `Checked` default target (`Checked.lean`) that excludes `StepSpec`'s 3 documented sorries by design — see README "Verification gates" |
 
 Known assembler constraint for the diff corpus: `la` only in `la $rt, label` form.
 
@@ -103,12 +108,15 @@ Known assembler constraint for the diff corpus: `la` only in `la $rt, label` for
 
 ## CI & merge flow
 
-- Remote: github.com/rShyvers/VibeCheck (private for now).
+- Remote: github.com/rShyvers/VibeCheck (private for now). Semantic MIPS'
+  own remote: github.com/rShyvers/semantic-mips (private).
 - Every worker branch: review by orchestrator → push branch → open PR →
-  GitHub Actions (`ci.yml`: full `lake build` + `make install && make run`
-  smoke on fresh checkout) green → merge to main.
-- Lean toolchain pinned in MipsSim/lean-toolchain; CI fetches the mathlib
-  build cache (`lake exe cache get`) — no source builds of mathlib anywhere.
+  GitHub Actions green → merge to main. In this (VibeCheck) repo, `ci.yml`
+  now just runs the `make install && make run` smoke test; the Lean build +
+  both verification gates run in semantic-mips's own CI.
+- Lean toolchain pinned in semantic-mips's lean-toolchain; its CI fetches
+  the mathlib build cache (`lake exe cache get`) — no source builds of
+  mathlib anywhere.
 
 ## Conventions (binding on all workers)
 

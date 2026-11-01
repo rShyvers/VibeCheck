@@ -5,27 +5,12 @@ on:
   push:
     branches: [main]
 
-jobs:
-  lean-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install elan + Lean toolchain (pinned in MipsSim/lean-toolchain)
-        run: curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
-      - name: Restore .lake cache (packages + mathlib build)
-        uses: actions/cache@v4
-        with:
-          path: MipsSim/.lake
-          key: lake-${{ hashFiles('MipsSim/lake-manifest.json') }}-${{ hashFiles('MipsSim/lean-toolchain') }}
-      - name: Fetch mathlib build cache (no-op when restored from cache)
-        run: cd MipsSim && ~/.elan/bin/lake exe cache get
-      - name: Build all targets (MipsSim incl. StepSpec, Checked, DiffHarness; includes unit tests / #guard)
-        run: cd MipsSim && ~/.elan/bin/lake build MipsSim Checked DiffHarness
-      - name: Kernel replay gate (lake check on the zero-sorry target)
-        run: cd MipsSim && ~/.elan/bin/lake check
-      - name: Trusted-statement gate (lake comparator on the 8-theorem trusted surface)
-        run: cd MipsSim && ~/.elan/bin/lake comparator
+# The Lean project (Semantic MIPS) was extracted to its own repo
+# (github.com/rShyvers/semantic-mips) and has its own CI there. This
+# workflow only covers what's left in this repo: the RULES.md requirement
+# that a fresh clone builds and runs.
 
+jobs:
   make-smoke:
     runs-on: ubuntu-latest
     steps:

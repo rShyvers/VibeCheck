@@ -28,7 +28,16 @@ The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is 
 
 ## Verification gates
 
-The Lean project (`MipsSim/`, Lean 4.35.0) implements and proves properties
+**Semantic MIPS now lives in its own repo:**
+[rShyvers/semantic-mips](https://github.com/rShyvers/semantic-mips). It was
+extracted out of this project (full build history preserved) so the Lean
+semantics — and only the Lean semantics — can be read, built, and reviewed
+without anything else in this project in the way. That repo's own README has
+the full trust chain, both verification gates, their current status, and the
+3 documented `sorry`s with closed substitutes. Summary below; see the other
+repo for the complete, current picture.
+
+The Lean project (Lean 4.35.0) implements and proves properties
 of **Semantic MIPS** — a small-step semantics of the v1 MIPS dialect,
 written in Lean, plus the kernel-checked theorems that say it matches its
 spec. See `CLAUDE.md` for the full approach to writing and checking these
@@ -37,9 +46,9 @@ proofs.
 The trust chain is plain: the MIPS language spec lives in `docs/spec/`
 (`INSTRUCTION-REF.md` and `SPEC-NOTES.md`), human-written and sourced to
 the real MARS 4.5 simulator's behavior. Semantic MIPS
-(`MipsSim/MipsSim/Step.lean`'s `step` function) is the Lean implementation
+(`Semantics/Step.lean`'s `step` function) is the Lean implementation
 of that spec. The spec's key claims are kernel-checked theorems
-(`MipsSim/MipsSim/Specs/StepSpec.lean`), judged by `lake comparator`
+(`Semantics/Specs/StepSpec.lean`), judged by `lake comparator`
 against a trusted statement file (`comparator.json`), and the whole
 semantics is differentially validated against real MARS 4.5 on a
 12-program corpus (`DiffHarness`). The project's narrative is deliberately
@@ -55,7 +64,7 @@ Two gates decide whether a proof counts as "done":
   all-or-nothing over its whole target: one unfinished proof anywhere in
   it fails the whole gate.
 - **`lake comparator`** checks a named list of theorems against a config
-  file (`MipsSim/comparator.json`) stating which axioms are allowed. Unlike
+  file (`comparator.json`) stating which axioms are allowed. Unlike
   `lake check`, it works theorem-by-theorem, so it is the right tool for a
   file that mixes finished and unfinished proofs.
 
@@ -67,7 +76,7 @@ both gates.
 
 ### Current status
 
-- **`lake comparator`: green.** Config: `MipsSim/comparator.json`. Trusted
+- **`lake comparator`: green.** Config: `comparator.json`. Trusted
   surface (8 of the spec's 21 theorems — picked to cover one theorem from
   each kind of claim the spec makes, not the whole file):
   - `add_spec_raw`, `sub_spec_raw` — arithmetic plus signed-overflow
@@ -82,7 +91,7 @@ both gates.
     form.
 
   The `challenge_module` and `solution_module` in `comparator.json` are
-  both `MipsSim.Specs.StepSpec`: there is one statement of each theorem,
+  both `Semantics.Specs.StepSpec`: there is one statement of each theorem,
   not a second copy in a separate `Challenge` file. A second copy would
   only add a place for the trusted statement and the proved statement to
   quietly drift apart; comparator's theorem-by-theorem kernel check and
@@ -93,41 +102,21 @@ both gates.
 - **`lake check`: green, with one documented, scoped exclusion.**
   `lake check` has no per-theorem axiom allowlist — it is pass/fail over
   its whole default target — so a file with any `sorry` in it fails the
-  gate outright. `MipsSim/MipsSim/Specs/StepSpec.lean` (the spec file) has 3 such
+  gate outright. `Semantics/Specs/StepSpec.lean` (the spec file) has 3 such
   `sorry`s (below), so it is excluded from `lake check`'s default target:
-  the default target is a new `Checked` library (`MipsSim/Checked.lean`,
+  the default target is a new `Checked` library (`Checked.lean`,
   set as the default in `lakefile.toml`) covering everything *except* the
   spec file — `Word`, `Types`, `State`, `Instruction`, `Asm`, `Step`, and
   their own unit tests. `lake check` kernel-replays exactly that and
   passes using only the three permitted axioms. The full project
-  (including the spec file) is still built by `lake build MipsSim`, and
+  (including the spec file) is still built by `lake build Semantics`, and
   the spec file's finished theorems are still checked by `lake
   comparator`, above. Nothing is silently dropped; see `Checked.lean`'s
   header comment for the same explanation in-repo.
 
 ### Open items: 3 documented `sorry`s
 
-All three are in `MipsSim/MipsSim/Specs/StepSpec.lean`, each with a closed, weaker
-version proved instead and a concrete `#guard`-checked example:
-
-1. **`step_preserves_zero_register`** — "register `$zero` always reads `0`
-   after any instruction", for every one of the 24 instruction kinds at
-   once. Closed substitute: `step_add_preserves_zero_register`, the same
-   claim for `add` specifically (the representative hard case, since it
-   both can halt and can write a register) — plus every instruction
-   *without* memory access, branching, or jumping is already covered by a
-   fully generic, closed proof (see the file's "STALL NOTE" for exactly
-   why the memory/branch/jump instructions don't close the same way yet).
-2. **`syscall1_spec`** — "syscall 1 prints `$a0`'s signed decimal value",
-   for an arbitrary starting state. Closed substitute: a `#guard` on a
-   concrete, well-formed starting state (built via `initialState`)
-   checking the same claim by running `step` and comparing output.
-3. **`syscall10_spec`** — "syscall 10 halts cleanly", for an arbitrary
-   starting state. Closed substitute: a `#guard` on a concrete state
-   confirming `step` halts with `.exit`.
-
-All three stall on the same root cause: `step`'s syscall dispatch and the
-memory/branch/jump instructions pattern-match deep inside a private helper,
-and the kernel's `rfl`/`decide` reduction doesn't see through that match for
-an abstract (not fully concrete) state. The file documents the exact
-mechanism in its "STALL NOTE" comments.
+All three are in `Semantic MIPS`'s `Semantics/Specs/StepSpec.lean` (see that
+repo), each with a closed, weaker version proved instead and a concrete
+`#guard`-checked example. Full detail in [that repo's
+README](https://github.com/rShyvers/semantic-mips#open-items-3-documented-sorrys).
