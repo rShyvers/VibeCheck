@@ -101,6 +101,28 @@ as the historical build log; current status lives in that repo's README.
 
 Known assembler constraint for the diff corpus: `la` only in `la $rt, label` form.
 
+### VibeCheck-side product (Act 5 demo, built ahead of schedule)
+
+- **Verdict view**: `make run` opens a two-tab page served by the bundled JRE.
+  **Verdict** tab renders gate status / MARS agreement / equivalence claims
+  from a JSON contract (`web/sample-verdict.json` until a real harness run
+  writes `out/verdict.json`). **Run code** tab lets a user paste MIPS
+  assembly and run it on the real semantics.
+- **Run code is live against real Semantic MIPS**, not a stub: semantic-mips
+  shipped `MipsRun` (their issue #1) on `feature/mips-run` (PR #3, open);
+  submodule pinned to that commit (`abf580d`); verified end to end through
+  our own `/run` endpoint with a live browser render (register grid showing
+  the computation, correct halt/output). Re-pin to their `main` once that PR
+  merges.
+- **Known limitation, carried from their side**: `MipsRun` wraps
+  `assemble`/`initialState`/`run` only, so `.data` is never materialized into
+  memory — `la`+`syscall 4` string-printing programs read zeros. Flagged
+  in-UI; our bundled sample program avoids it (registers + `syscall 1`/`11`
+  only).
+- **Slide deck**: `slides/index.html`, 8 slides, zero dependencies, led with
+  what Semantic MIPS actually models/proves (real `step` code, real theorem
+  names) rather than our build process.
+
 ## Decisions (locked 10/31)
 
 - **Deadline: 6 PM, Nov 1 (~27 h).** Venue n/a — we build the demo + a slide deck.

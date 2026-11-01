@@ -183,7 +183,10 @@ main:
     syscall
 </textarea>
       <div class="editor-foot">
-        <span class="hint">Runs on the Lean MIPS semantics (MipsRun) on this machine.</span>
+        <span class="hint">Runs on the Lean MIPS semantics (MipsRun) on this machine. Known limitation:
+          <code style="font-family:var(--mono)">.data</code> isn't loaded into memory yet, so
+          <code style="font-family:var(--mono)">la</code>+print-string programs will read zeros —
+          registers and <code style="font-family:var(--mono)">syscall 1</code>/<code style="font-family:var(--mono)">11</code> work fully.</span>
         <button class="run-btn" id="run-btn" type="button">Run</button>
       </div>
     </div>

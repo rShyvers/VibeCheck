@@ -42,9 +42,9 @@ The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is 
 
 The Lean semantics live in [rShyvers/semantic-mips](https://github.com/rShyvers/semantic-mips) and are embedded here as a **git submodule** at `semantic-mips/`, pinned to a specific commit. A plain `git clone` leaves that folder empty; `make install` (or `git submodule update --init`) fetches the pinned version, so `make install && make run` works from a fresh clone.
 
-Current pin: `abf580d` on their `feature/mips-run` branch (their PR #3, open as of this writing) \u2014 the first commit that adds `MipsRun`, the exe the Run-code tab calls. Re-pin to `main` once that PR merges there.
+Current pin: `abf580d` on their `feature/mips-run` branch (their PR #3, open as of this writing) — the first commit that adds `MipsRun`, the exe the Run-code tab calls. Re-pin to `main` once that PR merges there.
 
-**Known limitation, carried from their side:** `MipsRun` wraps `Asm.assemble`/`initialState`/`Step.run` only, so `.data` segments are never copied into memory \u2014 a program that loads a string with `la`+`syscall 4` will read all-zero memory instead. The bundled sample program was written to avoid this (it prints via register values only); keep that in mind for any future sample/demo program.
+**Known limitation, carried from their side:** `MipsRun` wraps `Asm.assemble`/`initialState`/`Step.run` only, so `.data` segments are never copied into memory — a program that loads a string with `la`+`syscall 4` will read all-zero memory instead. The bundled sample program was written to avoid this (it prints via register values only); keep that in mind for any future sample/demo program.
 
 The demo always runs against the **pinned** commit, never a moving branch. To build against a newer semantics: `cd semantic-mips && git fetch`, check out the commit you want, then from the repo root commit the updated pin (`git add semantic-mips`).
 
