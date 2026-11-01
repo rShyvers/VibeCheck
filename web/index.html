@@ -110,12 +110,12 @@
 
   .editor-card { margin-bottom: 24px; }
   .example-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-  .example-btn {
+  .example-btn, .ttt-level-btn {
     background: #0d1320; color: var(--dim); border: 1px solid var(--panel-edge); border-radius: 999px;
     font-family: var(--mono); font-size: 12px; padding: 5px 12px; cursor: pointer;
   }
-  .example-btn:hover { color: var(--text); }
-  .example-btn.active { color: var(--green); background: var(--green-dim); border-color: rgba(47, 214, 123, 0.45); }
+  .example-btn:hover, .ttt-level-btn:enabled:hover { color: var(--text); }
+  .example-btn.active, .ttt-level-btn.active { color: var(--green); background: var(--green-dim); border-color: rgba(47, 214, 123, 0.45); }
   .example-caption { color: var(--dim); font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
   textarea.asm {
     width: 100%; min-height: 300px; resize: vertical; tab-size: 4;
@@ -220,6 +220,8 @@
   .ttt-status.lose { color: var(--red); }
   .ttt-status.draw { color: var(--amber); }
   .ttt-legend { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .ttt-level { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ttt-level-btn:disabled { cursor: wait; }
   .ttt-note { color: var(--dim); font-size: 12px; line-height: 1.5; margin-top: 8px; }
 </style>
 </head>
@@ -249,14 +251,17 @@
             <div class="ttt-status" id="ttt-status" aria-live="polite"></div>
             <div class="ttt-legend">X = you · O = computer</div>
             <div class="ttt-total">Total MIPS instructions executed this game:<b id="ttt-total">0</b></div>
+            <div class="ttt-level" role="group" aria-label="Computer opponent (changing it starts a new game)">
+              <span class="ttt-legend">Opponent:</span>
+              <button class="ttt-level-btn" type="button" data-level="easy" aria-pressed="false" title="Changing the opponent starts a new game">Easy</button>
+              <button class="ttt-level-btn active" type="button" data-level="hard" aria-pressed="true" title="Changing the opponent starts a new game">Hard</button>
+            </div>
             <button class="run-btn" id="ttt-new" type="button">New game</button>
           </div>
         </div>
         <div id="ttt-message"></div>
-        <p class="ttt-note">The opponent takes a win or a block when available, but has no fork detection — a
-          careful player can beat it. Every move, win, block and draw you see was checked by the real MIPS
-          interpreter, not hardcoded.</p>
-        <p class="ttt-note">What is checked and what is tested: the MIPS semantics this runs on (<code style="font-family:var(--mono)">step</code>/decode) passes kernel-checked verification gates against its own written spec and is differentially validated against real MARS 4.5 (see the Verdict tab). This game program itself has no such proof — it was tested exhaustively instead: all 34,529 board/move combinations and 775 full games, with no failures.</p>
+        <p class="ttt-note" id="ttt-opponent-note"></p>
+        <p class="ttt-note">What is checked and what is tested: the MIPS semantics this runs on (<code style="font-family:var(--mono)">step</code>/decode) passes kernel-checked verification gates against its own written spec and is differentially validated against real MARS 4.5 (see the Verdict tab). This game program itself has no such proof — it was tested exhaustively instead: <span id="ttt-test-counts"></span></p>
       </div>
       <div class="card ttt-proof">
         <div class="ttt-run-head">
@@ -1019,6 +1024,336 @@ print_board:
         syscall
 `;
 
+// The Easy opponent: the same rules engine, but the computer always takes the
+// first empty cell (0..8). Copied byte-for-byte from the tested
+// game_stageA.asm.template; do not edit. Same placeholders and output as above.
+const TICTACTOE_ASM_TEMPLATE_EASY = `# =====================================================================
+# Tic-tac-toe rules engine for the semantic-mips v1 subset.
+# Stage A: computer takes the first empty cell.
+#
+# One run = one human move plus the computer's reply. No memory, no
+# subroutines (there is no jr), no input syscalls, no .data.
+#
+# Board: one register, $s0. Cell i uses bits 2i and 2i+1:
+#   00 = empty, 01 = X (human), 10 = O (computer).
+# A player owns a line when (board AND mask) == mask, where the X mask
+# has bit 2i set for each cell of the line and the O mask is that << 1.
+#
+# Registers: $s0 = board, $a1 = human move, $s3 = status to print.
+#
+# Output: the 9 cell values (0/1/2) each followed by a space, a newline,
+# the status, a newline. Status: 0 game continues, 1 X wins, 2 O wins,
+# 3 draw, 4 invalid move (board printed unchanged, computer does not move).
+# A move is invalid if it is outside 0..8, its cell is occupied, or the
+# input board already has a completed line.
+# =====================================================================
+
+# --- state (spliced in before each run) ---
+# Each placeholder below is a word in double braces: CELL0..CELL8 and MOVE.
+# Replace CELLi with the decimal value of cell i (0, 1 or 2) and MOVE with
+# the human's chosen cell index (decimal; any 32-bit integer is accepted,
+# values outside 0..8 give status 4). Each placeholder occurs exactly once.
+        li   $s0, 0
+        li   $t0, {{CELL0}}
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL1}}
+        sll  $t0, $t0, 2
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL2}}
+        sll  $t0, $t0, 4
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL3}}
+        sll  $t0, $t0, 6
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL4}}
+        sll  $t0, $t0, 8
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL5}}
+        sll  $t0, $t0, 10
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL6}}
+        sll  $t0, $t0, 12
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL7}}
+        sll  $t0, $t0, 14
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL8}}
+        sll  $t0, $t0, 16
+        or   $s0, $s0, $t0
+        li   $a1, {{MOVE}}
+# --- end state ---
+
+# --- 1. reject any move if the game is already won ---
+        # any X line in $s0? -> invalid
+        li   $t9, 21       # cells (0, 1, 2)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 1344     # cells (3, 4, 5)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 86016    # cells (6, 7, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 4161     # cells (0, 3, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 16644    # cells (1, 4, 7)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 66576    # cells (2, 5, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 65793    # cells (0, 4, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 4368     # cells (2, 4, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        # any O line in $s0? -> invalid
+        li   $t9, 42       # cells (0, 1, 2)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 2688     # cells (3, 4, 5)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 172032   # cells (6, 7, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 8322     # cells (0, 3, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 33288    # cells (1, 4, 7)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 133152   # cells (2, 5, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 131586   # cells (0, 4, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        li   $t9, 8736     # cells (2, 4, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+
+# --- 2. validate the move: 0 <= move <= 8 and cell empty ---
+        sltiu $t0, $a1, 9           # unsigned compare: negative moves fail too
+        beq  $t0, $zero, invalid
+        li   $t2, 1                 # $t2 := 1 << (2 * move)  (no variable shifts)
+        move $t1, $a1
+shift_loop:
+        blez $t1, shift_done
+        sll  $t2, $t2, 2
+        addi $t1, $t1, -1
+        j    shift_loop
+shift_done:
+        sll  $t3, $t2, 1
+        or   $t3, $t3, $t2          # $t3 := both bits of the cell
+        and  $t0, $s0, $t3
+        bne  $t0, $zero, invalid    # occupied (also covers a full board)
+
+# --- 3. place X ---
+        or   $s0, $s0, $t2
+
+# --- 4. X wins? board full? ---
+        # any X line in $s0? -> x_wins
+        li   $t9, 21       # cells (0, 1, 2)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 1344     # cells (3, 4, 5)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 86016    # cells (6, 7, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 4161     # cells (0, 3, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 16644    # cells (1, 4, 7)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 66576    # cells (2, 5, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 65793    # cells (0, 4, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        li   $t9, 4368     # cells (2, 4, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        # board full? (each cell has bit 2i or bit 2i+1 set) -> draw
+        srl  $t0, $s0, 1
+        or   $t0, $t0, $s0
+        li   $t9, 87381             # bit 2i of every cell
+        and  $t0, $t0, $t9
+        beq  $t0, $t9, draw
+
+# --- 5. computer turn (Stage A): first empty cell ---
+        # first empty cell in order range(0, 9)
+        move $t0, $s0
+        andi $t0, $t0, 3
+        li   $t2, 1
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 2
+        andi $t0, $t0, 3
+        li   $t2, 4
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 4
+        andi $t0, $t0, 3
+        li   $t2, 16
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 6
+        andi $t0, $t0, 3
+        li   $t2, 64
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 8
+        andi $t0, $t0, 3
+        li   $t2, 256
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 10
+        andi $t0, $t0, 3
+        li   $t2, 1024
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 12
+        andi $t0, $t0, 3
+        li   $t2, 4096
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 14
+        andi $t0, $t0, 3
+        li   $t2, 16384
+        beq  $t0, $zero, place_o
+        srl  $t0, $s0, 16
+        andi $t0, $t0, 3
+        li   $t2, 65536
+        beq  $t0, $zero, place_o
+        j    print_board            # unreachable: X left an empty cell
+
+# --- 6. place O at the cell whose low bit is $t2 ---
+place_o:
+        sll  $t0, $t2, 1
+        or   $s0, $s0, $t0
+        # any O line in $s0? -> o_wins
+        li   $t9, 42       # cells (0, 1, 2)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 2688     # cells (3, 4, 5)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 172032   # cells (6, 7, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 8322     # cells (0, 3, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 33288    # cells (1, 4, 7)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 133152   # cells (2, 5, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 131586   # cells (0, 4, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        li   $t9, 8736     # cells (2, 4, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        # board full? (each cell has bit 2i or bit 2i+1 set) -> draw
+        srl  $t0, $s0, 1
+        or   $t0, $t0, $s0
+        li   $t9, 87381             # bit 2i of every cell
+        and  $t0, $t0, $t9
+        beq  $t0, $t9, draw
+        li   $s3, 0                 # game continues
+        j    print_board
+x_wins:
+        li   $s3, 1
+        j    print_board
+o_wins:
+        li   $s3, 2
+        j    print_board
+draw:
+        li   $s3, 3
+        j    print_board
+invalid:
+        li   $s3, 4                 # board unchanged: X was not placed
+
+# --- 7. print the 9 cells, the status, exit ---
+print_board:
+        move $a0, $s0
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 2
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 4
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 6
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 8
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 10
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 12
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 14
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 16
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        li   $a0, 10
+        li   $v0, 11
+        syscall
+        move $a0, $s3
+        li   $v0, 1
+        syscall
+        li   $a0, 10
+        li   $v0, 11
+        syscall
+        li   $v0, 10
+        syscall
+`;
+
 // The board as last printed by the MIPS program: 9 cells, 0 empty, 1 X (you), 2 O (computer).
 let tttBoard = [0, 0, 0, 0, 0, 0, 0, 0, 0];
 // The last game status the program printed: 0 in progress, 1 X wins, 2 O wins, 3 draw.
@@ -1041,9 +1376,31 @@ const TTT_STATUS_TEXT = { 0: "Your move", 1: "You win!", 2: "The computer wins."
 const TTT_STATUS_CLASS = { 0: "", 1: "win", 2: "lose", 3: "draw" };
 const TTT_NO_MOVE_YET = "(no move yet in this game)";
 
-// The program for one move: the template with the board and the move filled in.
+// The two computer opponents. `note` says what the opponent does; `testCounts`
+// ends the "tested exhaustively instead:" sentence with that program's test results.
+const TTT_LEVELS = {
+  easy: {
+    template: TICTACTOE_ASM_TEMPLATE_EASY,
+    note: "The opponent always takes the first empty cell. No strategy at all \u2014 this is the simplest " +
+      "possible legal opponent. It does not try to win or block. Every move, win and draw you see was " +
+      "checked by the real MIPS interpreter, not hardcoded.",
+    testCounts: "all 34,529 board/move combinations and all 665 possible full games, with no failures.",
+  },
+  hard: {
+    template: TICTACTOE_ASM_TEMPLATE,
+    note: "The opponent takes a win or a block when available, but has no fork detection \u2014 a " +
+      "careful player can beat it. Every move, win, block and draw you see was checked by the real MIPS " +
+      "interpreter, not hardcoded.",
+    testCounts: "all 34,529 board/move combinations and 489 possible full games, with no failures.",
+  },
+};
+// The selected opponent: "easy" or "hard". Kept across New game.
+let tttLevel = "hard";
+
+// The program for one move: the selected opponent's template with the board
+// and the move filled in.
 function tttAssembly(board, move) {
-  let asm = TICTACTOE_ASM_TEMPLATE;
+  let asm = TTT_LEVELS[tttLevel].template;
   for (let i = 0; i < 9; i++) asm = asm.replace(`{{CELL${i}}}`, String(board[i]));
   return asm.replace("{{MOVE}}", String(move));
 }
@@ -1081,6 +1438,14 @@ function tttRender() {
   }
   status.className = "ttt-status " + (tttBusy ? "busy" : TTT_STATUS_CLASS[tttStatus]);
   document.getElementById("ttt-new").disabled = tttBusy;
+  for (const btn of document.querySelectorAll(".ttt-level-btn")) {
+    const active = btn.dataset.level === tttLevel;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+    btn.disabled = tttBusy;
+  }
+  document.getElementById("ttt-opponent-note").textContent = TTT_LEVELS[tttLevel].note;
+  document.getElementById("ttt-test-counts").textContent = TTT_LEVELS[tttLevel].testCounts;
   tttRenderRuns();
 }
 
@@ -1210,6 +1575,14 @@ function tttNewGame() {
   tttRender();
 }
 
+// Selects the opponent ("easy" or "hard"). A different opponent starts a new
+// game, because the board so far was played against the other one.
+function tttSelectLevel(level) {
+  if (tttBusy || level === tttLevel || !(level in TTT_LEVELS)) return;
+  tttLevel = level;
+  tttNewGame();
+}
+
 document.getElementById("ttt-board").innerHTML = Array.from({ length: 9 }, (_, i) =>
   `<button class="ttt-cell" type="button" data-cell="${i}"></button>`).join("");
 for (const btn of document.querySelectorAll(".ttt-cell")) {
@@ -1219,6 +1592,9 @@ for (const tab of document.querySelectorAll(".ttt-proof-tab")) {
   tab.addEventListener("click", () => tttShowProof(tab.dataset.proof));
 }
 document.getElementById("ttt-new").addEventListener("click", tttNewGame);
+for (const btn of document.querySelectorAll(".ttt-level-btn")) {
+  btn.addEventListener("click", () => tttSelectLevel(btn.dataset.level));
+}
 tttNewGame();
 
 // ---- Verdict -------------------------------------------------------------
