@@ -27,7 +27,10 @@ The bundled runtime is a **JRE** (no compiler), so compiled output in `out/` is 
 
 ## What you're looking at
 
-`make run` opens the **verdict view** (a local web page, no install): it renders the formal-verification verdict of the MIPS work — proof gates, differential agreement against MARS 4.5, and equivalence claims with counterexamples — so bug-freeness is visible at a glance. The page loads `/verdict.json`; until a real Lean harness run writes `out/verdict.json`, it shows the bundled sample verdict (the true v1 equivalence-corpus result: 5 real equivalences plus 2 deliberately buggy variants, caught).
+`make run` opens the **verdict view** (a local web page, no install), with two tabs:
+
+- **Run code** — paste MIPS assembly and hit Run. The server pipes it to `MipsRun`, a small executable built from the Lean semantics (`semantic-mips/.lake/build/bin/MipsRun`), and the page shows what the verified machine does: program output, halt reason, step count, and all 32 registers. Until that binary is built, the tab says so — build it with `make build-semantics` (needs [elan](https://github.com/leanprover/elan); fetches the prebuilt mathlib cache first, then compiles).
+- **Verdict** — the formal-verification verdict of the MIPS work: proof gates, differential agreement against MARS 4.5, and equivalence claims with counterexamples, so bug-freeness is visible at a glance. The tab loads `/verdict.json`; until a real Lean harness run writes `out/verdict.json`, it shows the bundled sample verdict (the true v1 equivalence-corpus result: 5 real equivalences plus 2 deliberately buggy variants, caught).
 
 ## What's trusted
 

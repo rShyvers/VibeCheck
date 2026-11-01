@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeCheck — Verdict</title>
+<title>VibeCheck</title>
 <style>
   :root {
     --bg: #0a0e14;
@@ -98,16 +98,105 @@
   footer a { color: #5d6c85; }
   .loading, .error-box { padding: 60px 20px; text-align: center; color: var(--dim); }
   .error-box { color: var(--red); font-family: var(--mono); font-size: 14px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 24px; border-bottom: 1px solid var(--panel-edge); }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    color: var(--dim); font: inherit; font-size: 14px; font-weight: 600; letter-spacing: 0.5px;
+    padding: 10px 16px; cursor: pointer;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--green); }
+
+  .editor-card { margin-bottom: 24px; }
+  textarea.asm {
+    width: 100%; min-height: 300px; resize: vertical; tab-size: 4;
+    background: #0d1320; color: var(--text); border: 1px solid var(--panel-edge); border-radius: 10px;
+    padding: 14px 16px; font-family: var(--mono); font-size: 13px; line-height: 1.55;
+  }
+  textarea.asm:focus { outline: none; border-color: rgba(47, 214, 123, 0.5); }
+  .editor-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 12px; flex-wrap: wrap; }
+  .editor-foot .hint { color: var(--dim); font-size: 12px; }
+  .run-btn {
+    background: var(--green); color: #06210f; border: none; border-radius: 8px;
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 26px; cursor: pointer;
+  }
+  .run-btn:hover { filter: brightness(1.1); }
+  .run-btn:disabled { background: #2a3445; color: var(--dim); cursor: wait; filter: none; }
+
+  .run-error {
+    border: 1px solid rgba(255, 93, 108, 0.45); background: var(--red-dim); color: var(--text);
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; font-size: 14px; line-height: 1.5;
+  }
+  .run-error b { color: var(--red); margin-right: 6px; }
+  .run-error code { font-family: var(--mono); font-size: 13px; }
+  .run-error pre { margin-top: 8px; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; color: var(--dim); }
+  .run-status { display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--mono); font-size: 13px; margin-bottom: 16px; }
+  .run-status span { color: var(--dim); }
+  .run-status b { color: var(--text); font-weight: 600; }
+  .run-status b.ok { color: var(--green); }
+  .run-status b.trap { color: var(--red); }
+  .run-status b.open { color: var(--amber); }
+  pre.program-output { color: var(--text); min-height: 44px; margin-bottom: 20px; }
+  pre.program-output.empty { color: var(--dim); font-style: italic; }
+  .reg-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 700px) { .reg-grid { grid-template-columns: repeat(2, 1fr); } }
+  .reg { background: #0d1320; border: 1px solid var(--panel-edge); border-radius: 8px; padding: 7px 10px; font-family: var(--mono); font-size: 12px; }
+  .reg .rn { color: var(--dim); }
+  .reg .rv { color: #5d6c85; float: right; }
+  .reg .rd { display: block; text-align: right; color: #46536a; font-size: 11px; margin-top: 2px; }
+  .reg.nz { border-color: rgba(47, 214, 123, 0.45); background: rgba(47, 214, 123, 0.07); }
+  .reg.nz .rn { color: var(--text); }
+  .reg.nz .rv { color: var(--green); }
+  .reg.nz .rd { color: var(--dim); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark"><b>VibeCheck</b> · verdict</div>
+    <div class="wordmark"><b>VibeCheck</b> · semantic MIPS</div>
     <div class="pin" id="pin">semantic-mips —</div>
   </header>
 
-  <div id="content"><div class="loading">reading verdict…</div></div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" id="tab-run" role="tab" aria-selected="true" data-view="run">Run code</button>
+    <button class="tab" id="tab-verdict" role="tab" aria-selected="false" data-view="verdict">Verdict</button>
+  </nav>
+
+  <section id="view-run" role="tabpanel" aria-labelledby="tab-run">
+    <div class="card editor-card">
+      <h2>MIPS assembly</h2>
+      <textarea class="asm" id="asm" spellcheck="false" autocomplete="off" aria-label="MIPS assembly source"># Add two numbers and print the sum.
+.data
+msg: .asciiz "7 + 35 = "
+.text
+main:
+    li    $t0, 7
+    li    $t1, 35
+    addu  $t2, $t0, $t1      # 42
+    li    $v0, 4             # print string
+    la    $a0, msg
+    syscall
+    li    $v0, 1             # print int
+    move  $a0, $t2
+    syscall
+    li    $v0, 11            # print char
+    li    $a0, 10            # newline
+    syscall
+    li    $v0, 10            # exit
+    syscall
+</textarea>
+      <div class="editor-foot">
+        <span class="hint">Runs on the Lean MIPS semantics (MipsRun) on this machine.</span>
+        <button class="run-btn" id="run-btn" type="button">Run</button>
+      </div>
+    </div>
+    <div id="run-result"></div>
+  </section>
+
+  <section id="view-verdict" role="tabpanel" aria-labelledby="tab-verdict" hidden>
+    <div id="content"><div class="loading">reading verdict…</div></div>
+  </section>
 
   <footer>
     formally verified MIPS semantics · kernel-checked proofs · differentially validated against MARS 4.5<br>
@@ -184,6 +273,109 @@ function render(v) {
       `semantic-mips @ ${String(v.semantic_mips.commit).slice(0, 7)}`;
   }
 }
+
+// ---- Tabs ----------------------------------------------------------------
+
+function showView(name) {
+  for (const tab of document.querySelectorAll(".tab")) {
+    const active = tab.dataset.view === name;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+    document.getElementById("view-" + tab.dataset.view).hidden = !active;
+  }
+}
+for (const tab of document.querySelectorAll(".tab")) {
+  tab.addEventListener("click", () => showView(tab.dataset.view));
+}
+
+// ---- Run code ------------------------------------------------------------
+
+// The 32 MIPS registers in number order ($0..$31), by canonical name.
+const REG_NAMES = ["zero", "at", "v0", "v1", "a0", "a1", "a2", "a3",
+  "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+  "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+  "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"];
+
+const NOT_BUILT_HTML = `<div class="run-error"><b>Interpreter not built.</b>
+  Run <code>make build-semantics</code> from the repo root, then press Run again.</div>`;
+
+function regCell(name, value) {
+  const n = Number(value);
+  if (value === null || value === undefined || !Number.isFinite(n)) {
+    return `<div class="reg"><span class="rn">$${esc(name)}</span><span class="rv">—</span></div>`;
+  }
+  const u = n >>> 0;
+  const hex = "0x" + u.toString(16).padStart(8, "0");
+  return `<div class="reg${u !== 0 ? " nz" : ""}"><span class="rn">$${esc(name)}</span><span class="rv">${esc(hex)}</span>` +
+    `<span class="rd">${esc(u | 0)}</span></div>`;
+}
+
+// Renders one MipsRun result object (see the /run contract in src/Main.java).
+function renderRunResult(r) {
+  if (!r || typeof r !== "object") {
+    return `<div class="run-error"><b>Unexpected reply.</b> The interpreter did not return a JSON object.</div>`;
+  }
+  if (r.assembled === false) {
+    return `<div class="run-error"><b>Assembly failed.</b><pre>${esc(r.error || "no details given")}</pre></div>`;
+  }
+  let html = r.error ? `<div class="run-error"><b>Error.</b><pre>${esc(r.error)}</pre></div>` : "";
+
+  const reason = r.halt_reason;
+  const reasonClass = reason === "exit" ? "ok" : reason ? "trap" : "open";
+  html += `<div class="card"><div class="run-status">
+      <div><span>halted</span> <b class="${r.halted ? "ok" : "open"}">${r.halted ? "yes" : "no"}</b></div>
+      <div><span>reason</span> <b class="${reasonClass}">${esc(reason || "none")}</b></div>
+      <div><span>steps</span> <b>${esc(r.steps === null || r.steps === undefined ? "?" : r.steps)}</b></div>
+    </div>`;
+
+  const out = r.output === null || r.output === undefined ? "" : String(r.output);
+  html += `<h2>Program output</h2>` +
+    (out ? `<pre class="run program-output">${esc(out)}</pre>`
+         : `<pre class="run program-output empty">(no output)</pre>`);
+
+  if (r.registers && typeof r.registers === "object") {
+    html += `<h2>Registers</h2><div class="reg-grid">` +
+      REG_NAMES.map(name => regCell(name, r.registers[name])).join("") + `</div>`;
+  }
+  return html + `</div>`;
+}
+
+async function runCode() {
+  const btn = document.getElementById("run-btn");
+  const result = document.getElementById("run-result");
+  btn.disabled = true;
+  btn.textContent = "Running…";
+  try {
+    const resp = await fetch("/run", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      body: document.getElementById("asm").value,
+    });
+    const text = await resp.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) { /* reported below */ }
+    if (resp.status === 503) {
+      result.innerHTML = NOT_BUILT_HTML;
+    } else if (!resp.ok) {
+      result.innerHTML = `<div class="run-error"><b>Run failed (HTTP ${esc(resp.status)}).</b> ` +
+        `${esc(data && data.error ? data.error : text)}</div>`;
+    } else if (data === null) {
+      result.innerHTML = `<div class="run-error"><b>Unreadable reply.</b> The interpreter output was not JSON:` +
+        `<pre>${esc(text)}</pre></div>`;
+    } else {
+      result.innerHTML = renderRunResult(data);
+    }
+  } catch (e) {
+    result.innerHTML = `<div class="run-error"><b>Could not reach the server.</b> ` +
+      `Is <code>make run</code> still running? (${esc(e.message)})</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run";
+  }
+}
+document.getElementById("run-btn").addEventListener("click", runCode);
+
+// ---- Verdict -------------------------------------------------------------
 
 fetch("/verdict.json", { cache: "no-store" })
   .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })

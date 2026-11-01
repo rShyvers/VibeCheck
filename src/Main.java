@@ -1,12 +1,18 @@
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.awt.Desktop;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * VibeCheck verdict view.
@@ -17,9 +23,13 @@ import java.util.concurrent.Executors;
  * output is dropped at out/verdict.json, the bundled sample verdict is
  * served so the demo always has something true to show.
  *
+ * POST /run takes raw MIPS assembly text, pipes it to the Lean `MipsRun`
+ * interpreter (semantic-mips/.lake/build/bin/MipsRun, or env
+ * VIBE_CHECK_MIPSRUN), and returns the interpreter's JSON verbatim.
+ *
  * Modes:
  *   normal  — serve forever, open the browser. `make run`.
- *   CI      — env CI set: self-test both endpoints on an ephemeral port,
+ *   CI      — env CI set: self-test the endpoints on an ephemeral port,
  *             print PASS/FAIL, exit. Keeps `make install && make run`
  *             non-blocking in GitHub Actions.
  */
@@ -28,6 +38,14 @@ public class Main {
     static final String INDEX_PATH = "web/index.html";
     static final String REAL_VERDICT_PATH = "out/verdict.json";
     static final String SAMPLE_VERDICT_PATH = "web/sample-verdict.json";
+    static final String DEFAULT_MIPSRUN_PATH = "semantic-mips/.lake/build/bin/MipsRun";
+    static final long MIPSRUN_TIMEOUT_SECONDS = 10;
+    /** One thread per pipe end, so stdin and stdout never wait on each other. */
+    static final java.util.concurrent.ExecutorService PIPE_THREADS = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "mipsrun-pipe");
+        t.setDaemon(true);
+        return t;
+    });
 
     public static void main(String[] args) throws Exception {
         int port = Integer.parseInt(System.getenv().getOrDefault("VIBE_CHECK_PORT", "8321"));
@@ -62,6 +80,7 @@ public class Main {
             Path v = verdictSourcePath(verdictOverride);
             serveFile(ex, v.toString(), "application/json; charset=utf-8");
         });
+        server.createContext("/run", Main::handleRun);
         server.start();
         return server;
     }
@@ -101,7 +120,94 @@ public class Main {
         }
     }
 
-    /** CI mode: boot the server, hit both endpoints, verify they answer. */
+    /** Path of the MipsRun interpreter: env VIBE_CHECK_MIPSRUN, else the lake build output. */
+    static Path mipsRunPath() {
+        String override = System.getenv("VIBE_CHECK_MIPSRUN");
+        if (override != null && !override.isEmpty()) return Path.of(override);
+        boolean windows = System.getProperty("os.name", "").startsWith("Windows");
+        return Path.of(windows ? DEFAULT_MIPSRUN_PATH + ".exe" : DEFAULT_MIPSRUN_PATH);
+    }
+
+    /**
+     * POST /run: the request body is raw .asm text. It is written to MipsRun's
+     * stdin, and MipsRun's stdout (one JSON object) is returned as-is with
+     * HTTP 200. Assembly failures are reported inside that JSON, not as HTTP
+     * errors. 503 if the interpreter is not built, 504 if it runs past the
+     * timeout, 502 if it prints nothing.
+     */
+    static void handleRun(HttpExchange ex) {
+        try {
+            if (!"POST".equalsIgnoreCase(ex.getRequestMethod())) {
+                ex.getResponseHeaders().set("Allow", "POST");
+                sendJson(ex, 405, "{\"error\":\"use POST with the assembly text as the body\"}");
+                return;
+            }
+            byte[] asm = ex.getRequestBody().readAllBytes();
+            Path bin = mipsRunPath();
+            if (!Files.isRegularFile(bin) || !Files.isExecutable(bin)) {
+                sendJson(ex, 503, "{\"error\":\"interpreter not built — run 'make build-semantics' from the repo root\"}");
+                return;
+            }
+
+            Process p = new ProcessBuilder(bin.toString())
+                    .redirectError(ProcessBuilder.Redirect.INHERIT)
+                    .start();
+            // Feed stdin and drain stdout on their own threads, so a program that
+            // ignores its input or floods its output cannot block the timeout.
+            CompletableFuture.runAsync(() -> {
+                try (OutputStream in = p.getOutputStream()) {
+                    in.write(asm);
+                } catch (IOException ignored) { } // interpreter exited without reading all input
+            }, PIPE_THREADS);
+            CompletableFuture<byte[]> reader = CompletableFuture.supplyAsync(() -> {
+                try (InputStream out = p.getInputStream()) {
+                    return out.readAllBytes();
+                } catch (IOException e) {
+                    return new byte[0];
+                }
+            }, PIPE_THREADS);
+
+            if (!p.waitFor(MIPSRUN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                sendJson(ex, 504, "{\"error\":\"interpreter timed out\"}");
+                return;
+            }
+            byte[] stdout;
+            try {
+                // bounded: a leftover child process could keep stdout open after exit
+                stdout = reader.get(MIPSRUN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException e) {
+                sendJson(ex, 504, "{\"error\":\"interpreter timed out\"}");
+                return;
+            }
+            if (new String(stdout, StandardCharsets.UTF_8).isBlank()) {
+                sendJson(ex, 502, "{\"error\":\"interpreter printed no output (exit code " + p.exitValue() + ")\"}");
+                return;
+            }
+            sendBytes(ex, 200, stdout);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            sendJson(ex, 500, "{\"error\":\"interrupted while running the interpreter\"}");
+        } catch (IOException e) {
+            sendJson(ex, 500, "{\"error\":\"could not run the interpreter\"}");
+        } finally {
+            ex.close();
+        }
+    }
+
+    static void sendJson(HttpExchange ex, int status, String json) {
+        sendBytes(ex, status, json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    static void sendBytes(HttpExchange ex, int status, byte[] body) {
+        try {
+            ex.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+            ex.sendResponseHeaders(status, body.length);
+            ex.getResponseBody().write(body);
+        } catch (IOException ignored) { } // client went away
+    }
+
+    /** CI mode: boot the server, hit each endpoint, verify it answers. */
     static int selfTest(Path verdictOverride) throws Exception {
         HttpServer server = start(0, verdictOverride); // ephemeral port
         int port = server.getAddress().getPort();
@@ -110,14 +216,39 @@ public class Main {
             if (!index.contains("verdict")) throw new AssertionError("index page missing marker");
             String json = httpGet("http://localhost:" + port + "/verdict.json");
             if (!json.contains("\"status\"")) throw new AssertionError("verdict JSON missing status field");
+            // /run: 200 with interpreter JSON if MipsRun is built, 503 if not. Both are correct.
+            String[] run = httpPost("http://localhost:" + port + "/run", "li $v0, 10\nsyscall\n");
+            String runResult;
+            if (run[0].equals("200") && run[1].contains("\"assembled\"")) {
+                runResult = "interpreter ran";
+            } else if (run[0].equals("503")) {
+                runResult = "interpreter not built (503)";
+            } else {
+                throw new AssertionError("/run -> HTTP " + run[0] + ": " + run[1]);
+            }
             System.out.println("VibeCheck verdict view: self-test PASS (port " + port + ", verdict "
-                    + verdictSource(verdictOverride) + ")");
+                    + verdictSource(verdictOverride) + ", /run " + runResult + ")");
             return 0;
         } catch (AssertionError e) {
             System.out.println("VibeCheck verdict view: self-test FAIL — " + e.getMessage());
             return 1;
         } finally {
             server.stop(0);
+        }
+    }
+
+    /** POST a text/plain body; returns {status code, response body}. */
+    static String[] httpPost(String url, String body) throws IOException {
+        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        var req = java.net.http.HttpRequest.newBuilder().uri(URI.create(url))
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body)).build();
+        try {
+            var resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            return new String[] { String.valueOf(resp.statusCode()), resp.body() };
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("interrupted while posting to " + url, e);
         }
     }
 
