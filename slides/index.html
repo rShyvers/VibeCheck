@@ -188,7 +188,7 @@
     </div>
   </section>
 
-  <!-- 3: Gates + differential, together -->
+  <!-- 4: Gates + differential, together -->
   <section class="slide">
     <div class="kicker">How we know, not just assert</div>
     <h1>Checked by the kernel. Checked against <span class="accent">reality</span>.</h1>
@@ -263,31 +263,7 @@ beq  $t0, $t9, x_wins   <span class="c"># every bit of the mask is set &rarr; X 
       screen (Verdict).</p>
   </section>
 
-  <!-- 7: Roadmap -->
-  <section class="slide">
-    <div class="kicker">What's next</div>
-    <h1>The semantics grew fast; <span class="accent">one gap remains</span></h1>
-    <div class="cols">
-      <div class="card green">
-        <h3>Landed since this deck started</h3>
-        <ul>
-          <li>Real branch delay slots, <code style="font-family:var(--mono)">jr</code>/<code style="font-family:var(--mono)">jalr</code> (real subroutine calls), floating point, exceptions/traps</li>
-          <li>145 kernel-checked theorems, up from ~12 with real coverage</li>
-          <li>A false theorem statement found and fixed before it could mislead anyone</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>Still missing: assembler macros</h3>
-        <p>The one specific, unresolved blocker for unsealing a real hand-written buggy program and proving a
-          surgical fix &mdash; everything else that was "out of scope" is now real.</p>
-        <p style="margin-top:10px">Not re-pinning yet, on purpose: delay slots would silently break the
-          shipped Tic-Tac-Toe engine (checked directly &mdash; 18,356 failures against the new semantics).
-          Connect Four is next in line once that rewrite happens.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 8: Close -->
+  <!-- 7: Close -->
   <section class="slide">
     <div class="kicker">Thank you</div>
     <h1>Verified semantics.<br>A real bug, caught.<br>In your browser.</h1>
