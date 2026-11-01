@@ -123,6 +123,50 @@ Known assembler constraint for the diff corpus: `la` only in `la $rt, label` for
   what Semantic MIPS actually models/proves (real `step` code, real theorem
   names) rather than our build process.
 
+- **Tic-Tac-Toe tab**: a third tab where the ENTIRE rules engine (move
+  validation, win/draw detection, opponent strategy) is a real MIPS program
+  executed through the unchanged `/run` endpoint — browser holds only the
+  board, no game logic in JS. Discovered along the way: the v1 ISA pinned at
+  `abf580d` has **no `jr`/`jalr`** — `jal` sets `$ra` but nothing can ever
+  jump back to it, so subroutine call/return is impossible. Worked around
+  with a bitboard design (one register, 2 bits/cell, 16 straight-line
+  `and`+`beq` win-mask checks, no memory, no loops) — a technique found by
+  researching existing GitHub MIPS tic-tac-toe implementations (none were
+  directly usable: all relied on `jr`, interactive syscalls, or `.data`).
+  Exhaustively tested against the real binary: 34,529 board/move pairs + all
+  3^9 boards + 775 full games, zero failures; mutation-tested (9 broken
+  variants, all caught). Known, disclosed-in-UI limitation: the opponent has
+  no fork detection (12/489 games end in a human win).
+
+### Upstream update (semantic-mips, Nov 1 evening): jr/jalr and much more real MIPS32 coverage landed
+
+Checked directly against their repo: **`main` moved substantially past our
+pin.** PRs #4–#8 (all merged) added, on top of the v2 ISA expansion already
+on `main`: **`jr`/`jalr`** (PR #6, `dev/v3`, commit `85adc84` — the exact gap
+above), plus `mul`/variable shifts (`sllv`/`srlv`/`srav`), `ll`/`sc`,
+REGIMM branches (`bltz`/`bgez(al)`), `madd`/`maddu`/`msub`/`msubu`/`mthi`/
+`mtlo`, immediate-operand traps, MIPS32r2 rotate/bitfield instructions,
+unaligned `lwl`/`lwr`/`swl`/`swr`, and FPU rounding/compare instructions —
+all green on their own gates (`lake check`, `lake comparator`, DiffHarness,
+EquivHarness), no new `sorry`s. Issue #1 (`MipsRun`) is now **closed**.
+
+**Still missing anywhere in their history: assembler macros.** That remains
+the one specific, unresolved blocker for the CS47 unseal (PLAN.md's
+cleanroom protocol above) — everything else that was "out of v1 scope" six
+hours ago now exists.
+
+**Caution before re-pinning**: `main` now includes **real branch delay
+slots** (every `beq`/`bne`/`j`/`jal` executes the instruction immediately
+following it before transferring control — not modeled in `abf580d`, which
+our Tic-Tac-Toe engine was written and exhaustively tested against). The
+tic-tac-toe template's 16 win-mask checks are straight-line `beq`-heavy code
+with no delay-slot awareness; bumping the pin without rewriting and
+re-testing that template against delay-slot semantics will likely silently
+break a shipped, fully-tested feature. **Do not re-pin casually** — any pin
+bump needs the tic-tac-toe engine re-verified (or rewritten) against
+whatever commit we move to, with the same exhaustive-testing discipline it
+already passed once.
+
 ## Decisions (locked 10/31)
 
 - **Deadline: 6 PM, Nov 1 (~27 h).** Venue n/a — we build the demo + a slide deck.
