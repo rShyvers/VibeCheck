@@ -144,7 +144,39 @@ Known assembler constraint for the diff corpus: `la` only in `la $rt, label` for
 - **LLM optimization (Act 4):** targets the MIPS program; our documented Claude worker
   is "the LLM". Stretch goal given the deadline.
 
-## 27-hour battle plan (from ~12:30 Oct 31)
+## Schedule status (updated ~9:15 PM Oct 31 — ~8h45m elapsed, ~21h to deadline)
+
+The original battle plan below (kept for the historical record) assumed we'd
+do the CS47 unseal and Act 2/3 ourselves on this timeline. That changed:
+Semantic MIPS is now a separate team on their own repo/schedule, and Act 2/3
+is deferred until their v2 ISA work lands macro support — not on our
+critical path. Our actual critical path became the Act 5 demo product, and
+it's done well ahead of the original "morning Nov 1" slot:
+
+| Item | Status |
+|---|---|
+| Act 1 (Semantic MIPS v1: step + proofs + gates + diff corpus) | ✅ done, extracted to its own repo |
+| Verdict view (two-tab page, `make run`) | ✅ shipped |
+| Interactive Run-code tab | ✅ shipped, **verified live against real Semantic MIPS** (not a stub) — semantic-mips shipped `MipsRun`, pinned at `abf580d` on their open PR #3 |
+| Slide deck (8 slides, zero deps) | ✅ shipped, leads with what Semantic MIPS proves |
+| Act 2/3 (CS47 unseal + fix proof) | ⏸ deferred to v2 (their side; v2 ISA expansion — delay slots/FPU/exceptions — in progress on PR #2) |
+| Act 4 (LLM optimization + equivalence proof) | Not started; depends on Act 2/3 landing first; stretch per the original decision below |
+
+**Remaining-time plan, roughly budgeted against the ~21h left:**
+
+| Budget | Work |
+|---|---|
+| now | Canned bug-example picker in the Run-code tab (load the equivalence corpus's two planted-bug programs so a judge can run the actual counterexample themselves) |
+| ongoing, low-effort | Re-pin `semantic-mips` to their `main` once PR #3 merges; watch PR #2 (v2 ISA) for the same |
+| as time allows | Real (non-headless) browser check of the full demo on this machine; refresh this table's "done" column as work lands |
+| if Act 2/3 lands with hours to spare | Act 4 becomes possible again — revisit then, not before |
+| final hours | Rehearse the demo narrative end to end against the slide deck; no new features this late |
+
+**Cut lines still stand as written below** (Act 3 proof deadline, Act 4 demotion,
+web view floor, slide count) — they just apply to whichever team/timeline
+Acts 2–4 actually land on now.
+
+### Original 27-hour battle plan (historical; see status table above for what actually happened)
 
 | Window | Work | Parallelism |
 |---|---|---|
