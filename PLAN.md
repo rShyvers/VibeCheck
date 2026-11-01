@@ -134,7 +134,7 @@ Known assembler constraint for the diff corpus: `la` only in `la $rt, label` for
   researching existing GitHub MIPS tic-tac-toe implementations (none were
   directly usable: all relied on `jr`, interactive syscalls, or `.data`).
   Exhaustively tested against the real binary: 34,529 board/move pairs + all
-  3^9 boards + 775 full games, zero failures; mutation-tested (9 broken
+  3^9 boards + 489 possible full games, zero failures; mutation-tested (9 broken
   variants, all caught). Known, disclosed-in-UI limitation: the opponent has
   no fork detection (12/489 games end in a human win).
 
