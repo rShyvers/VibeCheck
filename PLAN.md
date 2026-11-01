@@ -155,17 +155,39 @@ the one specific, unresolved blocker for the CS47 unseal (PLAN.md's
 cleanroom protocol above) — everything else that was "out of v1 scope" six
 hours ago now exists.
 
-**Caution before re-pinning**: `main` now includes **real branch delay
-slots** (every `beq`/`bne`/`j`/`jal` executes the instruction immediately
-following it before transferring control — not modeled in `abf580d`, which
-our Tic-Tac-Toe engine was written and exhaustively tested against). The
-tic-tac-toe template's 16 win-mask checks are straight-line `beq`-heavy code
-with no delay-slot awareness; bumping the pin without rewriting and
-re-testing that template against delay-slot semantics will likely silently
-break a shipped, fully-tested feature. **Do not re-pin casually** — any pin
-bump needs the tic-tac-toe engine re-verified (or rewritten) against
-whatever commit we move to, with the same exhaustive-testing discipline it
-already passed once.
+### Re-pin review (Nov 1, later): checked directly, decided against for now
+
+Since the note above, `main` gained a second wave: PR #9 ("32 -> 116
+StepSpec theorems") and PR #10 ("116 -> 145 theorems") proved nearly every
+previously-implemented-but-unspecified instruction family, closed
+`lwl`/`lwr`/`swl`/`swr` fully, and caught + fixed a real false theorem
+statement (`syscall1_spec` was missing a `pendingBranch = none` hypothesis).
+`jr`/`jalr` now have kernel-checked spec theorems, not just implementations.
+4 documented `sorry`s (1 new, narrow, fully explained), same spirit as
+before. All independently re-verified by us, not just read from PR text:
+built their `main` ourselves, ran `lake check`/`lake comparator` (both
+green, same 8-theorem trusted surface), `DiffHarness` (12/12),
+`EquivHarness` (7/7).
+
+**Then checked the actual re-pin question with hard evidence, not
+speculation.** Built `MipsRun` from `main` and ran every program this repo
+ships against it:
+- Hello world, both bug-example programs (no branches): identical, correct
+  output on both pins.
+- **Tic-Tac-Toe's full test suite against the new binary: 18,356 failures**
+  out of ~70,000 checks. The win-mask `beq` chains are corrupted by the now-
+  mandatory delay slot (the instruction after every branch now always
+  executes too, which the straight-line mask-check code never accounted
+  for) — e.g. placing X in an empty cell wrongly reports an immediate win.
+
+**Decision: not re-pinning.** The new semantics and proof coverage are
+genuinely better, but the only upstream win-condition improvement available
+to us from this (a stronger, delay-slot-aware opponent) requires rewriting
+Tic-Tac-Toe's engine from scratch and re-earning the same exhaustive-testing
+rigor it already passed once, under whatever time is left. Holding at
+`abf580d` keeps the shipped, tested, honestly-caveated game working. Revisit
+if there's ever clearly enough runway to redo that work properly — not a
+casual bump.
 
 ## Decisions (locked 10/31)
 
