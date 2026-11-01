@@ -14,10 +14,11 @@ program with a proof that behavior is unchanged.
    (40 instructions + syscall), proven against spec S (the MIPS language,
    educational dialect per SPEC-NOTES §9). Differential suite vs MARS on an
    *independent* corpus (our own test programs — never the sealed asset).
-2. **Act 2 — Unseal & detect.** The sealed CS47 program ("works" but has a math
-   error deep in its logic) enters context only after gate G1. Detection via
-   Lean: verify the program against its *functional intent* spec → counterexample;
-   corroborate with differential runs. Pinpoint the faulty instruction(s).
+2. **Act 2 — Unseal & detect. SUPERSEDED, see note below.** Originally: the
+   sealed CS47 program ("works" but has a math error deep in its logic)
+   enters context only after gate G1; detect via Lean (functional-intent
+   spec → counterexample), corroborate with differential runs, pinpoint the
+   faulty instruction(s).
 3. **Act 3 — Fix & prove surgical.** Fix the assembly. Prove: fixed program ≡
    original on all inputs **except** the buggy behavior (program-level
    equivalence under our semantics — "the code has not migrated away").
@@ -27,7 +28,10 @@ program with a proof that behavior is unchanged.
    semantics → real bug found by Lean → surgical fix proven → LLM optimization
    proven equivalent. Plus the MARS lw/sw sign-extension finding as a bonus.
 
-## Cleanroom protocol (BINDING)
+## Cleanroom protocol (BINDING, SUPERSEDED)
+
+Kept verbatim as the historical record; superseded by the note immediately
+below.
 
 - **SEALED asset:** `https://github.com/rShyvers/CS47-Final-Project` — the CS47
   final-project MIPS program(s). Contains the real math bug; it is the Act 2
@@ -42,6 +46,34 @@ program with a proof that behavior is unchanged.
   can never leak into worker checkouts or commits).
 - **Functional intent** of the sealed program is spec-level information and may
   be provided by the user in their own words at any time (see Open items).
+
+### CS47 dropped: replaced by a self-written equivalence corpus
+
+CS47 needs assembler macros to even assemble, and `docs/spec/SPEC-NOTES.md`
+§9 puts macros explicitly out of v1 scope — `Asm.lean` cannot assemble it at
+all, so Act 2 as planned is not possible against this semantics. Act 2
+(and by extension Act 3's "prove a fix" framing) is dropped.
+
+In its place, [rShyvers/semantic-mips](https://github.com/rShyvers/semantic-mips)
+now has `tests/equiv/` + `EquivHarness.lean`: 7 equivalence claims across 12
+self-written `.asm` programs, each pairing a direct arithmetic instruction
+(`mult`, `div`, `sub`) against a bit-shift/bitwise equivalent (the kind of
+strength-reduction a compiler would do). Two of the seven are deliberately
+wrong (the classic divide/mod-by-power-of-two-via-raw-shift bug, which
+breaks on negative dividends), so the corpus still has to catch a real
+divergence, not just confirm agreement everywhere — the same spirit as the
+CS47 bug hunt, self-contained. `EquivHarness` is a "thin interpreter": it
+runs both sides of each pair directly through `assemble`/`run`, no MARS, no
+JVM, no per-case compilation, since equivalence between two
+already-validated programs is a question internal to the semantics, not one
+that needs an external oracle. All 7 cases were hand-written, then
+independently validated by 5 parallel subagents (one per arithmetic pair,
+each in its own git worktree) before `EquivHarness.lean` was written as the
+permanent, CI-running version of that same check. See that repo's README
+("Equivalence corpus") for the full case table.
+
+Acts 4–5 (LLM optimization + demo) still stand, now applied to this
+equivalence corpus's "correct" variants rather than a fixed CS47.
 
 ## Build state
 
