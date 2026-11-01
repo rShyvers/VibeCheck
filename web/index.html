@@ -158,12 +158,23 @@
   .reg.nz .rv { color: var(--green); }
   .reg.nz .rd { color: var(--dim); }
 
-  .ttt-card { margin-bottom: 24px; }
-  .ttt-layout { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-  .ttt-board { display: grid; grid-template-columns: repeat(3, 84px); grid-template-rows: repeat(3, 84px); gap: 8px; }
+  /* Tic-tac-toe is the headline demo, so its view is wider than .wrap (up to
+     1400px, never past the body padding) and fits one TV screen: the game on the
+     left, and on the right one fixed-size card for the interpreter data. That card
+     takes the game card's height and scrolls inside, so moves never grow the page. */
+  .ttt-stage {
+    --ttt-half-width: min(700px, 50vw - 24px);
+    margin-inline: calc(50% - var(--ttt-half-width));
+    display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px;
+  }
+  @media (max-width: 1099px) { .ttt-stage { grid-template-columns: minmax(0, 1fr); } }
+  /* Board cell size follows the screen height: 11% of it, from 72px to 124px. */
+  .ttt-game { --ttt-cell: clamp(72px, 11vh, 124px); }
+  .ttt-layout { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .ttt-board { display: grid; grid-template-columns: repeat(3, var(--ttt-cell)); grid-template-rows: repeat(3, var(--ttt-cell)); gap: 10px; }
   .ttt-cell {
-    background: #0d1320; border: 1px solid var(--panel-edge); border-radius: 10px;
-    font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--dim); cursor: pointer;
+    background: #0d1320; border: 1px solid var(--panel-edge); border-radius: 12px;
+    font-family: var(--mono); font-size: calc(var(--ttt-cell) * 0.46); font-weight: 700; color: var(--dim); cursor: pointer;
   }
   .ttt-cell:enabled:hover { border-color: rgba(47, 214, 123, 0.5); }
   .ttt-cell:disabled { cursor: default; color: var(--dim); }
@@ -171,19 +182,38 @@
   .ttt-cell.pending { border-color: rgba(47, 214, 123, 0.5); }
   .ttt-cell.x { color: var(--green); }
   .ttt-cell.o { color: var(--amber); }
-  .ttt-side { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
-  .ttt-status { font-size: 22px; font-weight: 700; }
+  .ttt-side { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; flex: 1 1 200px; min-width: 0; }
+  .ttt-status { font-size: 28px; font-weight: 700; }
   .ttt-status.busy { color: var(--dim); font-family: var(--mono); font-size: 15px; font-weight: 600; }
   .ttt-status .prompt { color: var(--green); margin-right: 8px; }
   .ttt-status .cursor { color: var(--green); margin-left: 4px; animation: ttt-blink 1s steps(1) infinite; }
   @keyframes ttt-blink { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .ttt-status .cursor { animation: none; } }
   .ttt-total { font-family: var(--mono); font-size: 13px; color: var(--dim); background: #0d1320; border: 1px solid var(--panel-edge); border-radius: 8px; padding: 8px 12px; }
-  .ttt-total b { color: var(--green); font-size: 20px; font-weight: 700; margin-left: 6px; }
-  .ttt-run-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ttt-total b { display: block; color: var(--green); font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .ttt-proof { display: flex; flex-direction: column; min-width: 0; }
+  .ttt-run-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
   .ttt-run-head h2 { margin: 0; }
   .ttt-run-head .run-status { margin: 0; }
-  pre.run.ttt-log { max-height: 220px; overflow-y: auto; color: var(--text); }
+  .ttt-proof-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ttt-proof-tab {
+    background: #0d1320; color: var(--dim); border: 1px solid var(--panel-edge); border-radius: 999px;
+    font-family: var(--mono); font-size: 12px; padding: 5px 12px; cursor: pointer;
+  }
+  .ttt-proof-tab:hover { color: var(--text); }
+  .ttt-proof-tab.active { color: var(--green); background: var(--green-dim); border-color: rgba(47, 214, 123, 0.45); }
+  /* contain: size keeps the panel contents out of the card's height: the body
+     fills what the game card leaves (at least 380px) and its panels scroll. */
+  .ttt-proof-body { flex: 1 1 auto; min-height: 380px; contain: size; position: relative; }
+  .ttt-proof-panel { position: absolute; inset: 0; display: flex; flex-direction: column; overflow-y: auto; }
+  .ttt-proof-panel[hidden] { display: none; }
+  .ttt-proof-panel h2 { margin-bottom: 8px; }
+  .ttt-proof-panel pre.run { overflow-y: auto; }
+  .ttt-proof .reg-grid { gap: 6px; }
+  .ttt-proof .reg { padding: 5px 9px; }
+  pre.run.ttt-log { flex: 1 1 auto; min-height: 0; color: var(--text); }
+  pre.run.ttt-output { flex: none; color: var(--text); margin-bottom: 14px; }
+  pre.run.ttt-asm { flex: 1 1 auto; min-height: 0; }
   pre.run.ttt-log.empty, .ttt-regs-empty { color: var(--dim); font-style: italic; }
   .ttt-regs-empty { font-family: var(--mono); font-size: 12.5px; }
   .ttt-status.win { color: var(--green); }
@@ -191,10 +221,6 @@
   .ttt-status.draw { color: var(--amber); }
   .ttt-legend { font-family: var(--mono); font-size: 12px; color: var(--dim); }
   .ttt-note { color: var(--dim); font-size: 12px; line-height: 1.5; margin-top: 8px; }
-  details.ttt-asm summary { cursor: pointer; color: var(--dim); font-size: 13px; font-weight: 600; }
-  details.ttt-asm summary:hover { color: var(--text); }
-  details.ttt-asm h2 { margin-top: 16px; margin-bottom: 8px; }
-  details.ttt-asm pre.run { max-height: 420px; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -205,12 +231,62 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab active" id="tab-run" role="tab" aria-selected="true" data-view="run">Run code</button>
+    <button class="tab active" id="tab-ttt" role="tab" aria-selected="true" data-view="ttt">Tic-Tac-Toe</button>
+    <button class="tab" id="tab-run" role="tab" aria-selected="false" data-view="run">Run code</button>
     <button class="tab" id="tab-verdict" role="tab" aria-selected="false" data-view="verdict">Verdict</button>
-    <button class="tab" id="tab-ttt" role="tab" aria-selected="false" data-view="ttt">Tic-Tac-Toe</button>
   </nav>
 
-  <section id="view-run" role="tabpanel" aria-labelledby="tab-run">
+  <section id="view-ttt" role="tabpanel" aria-labelledby="tab-ttt">
+    <div class="ttt-stage">
+      <div class="card ttt-game">
+        <h2>Tic-tac-toe on the verified machine</h2>
+        <p class="example-caption">You play X. Each time you click a cell, this page sends one MIPS program to the
+          interpreter. That program checks your move, makes the computer's reply, and reports a win or a draw.
+          The page has no game rules of its own: it only shows the board the program prints.</p>
+        <div class="ttt-layout">
+          <div class="ttt-board" id="ttt-board" role="group" aria-label="Tic-tac-toe board"></div>
+          <div class="ttt-side">
+            <div class="ttt-status" id="ttt-status" aria-live="polite"></div>
+            <div class="ttt-legend">X = you · O = computer</div>
+            <div class="ttt-total">Total MIPS instructions executed this game:<b id="ttt-total">0</b></div>
+            <button class="run-btn" id="ttt-new" type="button">New game</button>
+          </div>
+        </div>
+        <div id="ttt-message"></div>
+        <p class="ttt-note">The opponent takes a win or a block when available, but has no fork detection — a
+          careful player can beat it. Every move, win, block and draw you see was checked by the real MIPS
+          interpreter, not hardcoded.</p>
+        <p class="ttt-note">What is checked and what is tested: the MIPS semantics this runs on (<code style="font-family:var(--mono)">step</code>/decode) passes kernel-checked verification gates against its own written spec and is differentially validated against real MARS 4.5 (see the Verdict tab). This game program itself has no such proof — it was tested exhaustively instead: all 34,529 board/move combinations and 775 full games, with no failures.</p>
+      </div>
+      <div class="card ttt-proof">
+        <div class="ttt-run-head">
+          <h2>Interpreter reply, latest move</h2>
+          <div class="run-status" id="ttt-reg-status"></div>
+        </div>
+        <div class="ttt-proof-tabs" role="tablist" aria-label="Interpreter data for this game">
+          <button class="ttt-proof-tab" id="ttt-proof-tab-regs" type="button" role="tab" data-proof="regs" aria-controls="ttt-proof-regs">Registers</button>
+          <button class="ttt-proof-tab" id="ttt-proof-tab-log" type="button" role="tab" data-proof="log" aria-controls="ttt-proof-log">Execution log</button>
+          <button class="ttt-proof-tab" id="ttt-proof-tab-asm" type="button" role="tab" data-proof="asm" aria-controls="ttt-proof-asm">MIPS program &amp; output</button>
+        </div>
+        <div class="ttt-proof-body">
+          <div class="ttt-proof-panel" id="ttt-proof-regs" role="tabpanel" aria-labelledby="ttt-proof-tab-regs">
+            <div id="ttt-regs"></div>
+          </div>
+          <div class="ttt-proof-panel" id="ttt-proof-log" role="tabpanel" aria-labelledby="ttt-proof-tab-log" hidden>
+            <pre class="run ttt-log" id="ttt-log" aria-live="polite"></pre>
+          </div>
+          <div class="ttt-proof-panel" id="ttt-proof-asm" role="tabpanel" aria-labelledby="ttt-proof-tab-asm" hidden>
+            <h2>Program output</h2>
+            <pre class="run ttt-output" id="ttt-output"></pre>
+            <h2>Sent to /run</h2>
+            <pre class="run ttt-asm" id="ttt-asm"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-run" role="tabpanel" aria-labelledby="tab-run" hidden>
     <div class="card editor-card">
       <h2>MIPS assembly</h2>
       <div class="example-picker" id="example-picker" role="group" aria-label="Load an example program"></div>
@@ -244,47 +320,6 @@ main:
 
   <section id="view-verdict" role="tabpanel" aria-labelledby="tab-verdict" hidden>
     <div id="content"><div class="loading">reading verdict…</div></div>
-  </section>
-
-  <section id="view-ttt" role="tabpanel" aria-labelledby="tab-ttt" hidden>
-    <div class="card ttt-card">
-      <h2>Tic-tac-toe on the verified machine</h2>
-      <p class="example-caption">You play X. Each time you click a cell, this page sends one MIPS program to the
-        interpreter. That program checks your move, makes the computer's reply, and reports a win or a draw.
-        The page has no game rules of its own: it only shows the board the program prints.</p>
-      <div class="ttt-layout">
-        <div class="ttt-board" id="ttt-board" role="group" aria-label="Tic-tac-toe board"></div>
-        <div class="ttt-side">
-          <div class="ttt-status" id="ttt-status" aria-live="polite"></div>
-          <div class="ttt-legend">X = you · O = computer</div>
-          <div class="ttt-total">Total MIPS instructions executed this game:<b id="ttt-total">0</b></div>
-          <button class="run-btn" id="ttt-new" type="button">New game</button>
-        </div>
-      </div>
-      <div id="ttt-message"></div>
-      <p class="ttt-note">The opponent takes a win or a block when available, but has no fork detection — a
-        careful player can beat it. Every move, win, block and draw you see was checked by the real MIPS
-        interpreter, not hardcoded.</p>
-      <p class="ttt-note">What is checked and what is tested: the MIPS semantics this runs on (<code style="font-family:var(--mono)">step</code>/decode) passes kernel-checked verification gates against its own written spec and is differentially validated against real MARS 4.5 (see the Verdict tab). This game program itself has no such proof — it was tested exhaustively instead: all 34,529 board/move combinations and 775 full games, with no failures.</p>
-    </div>
-    <div class="card ttt-card">
-      <div class="ttt-run-head">
-        <h2>Registers after this move</h2>
-        <div class="run-status" id="ttt-reg-status"></div>
-      </div>
-      <div id="ttt-regs"></div>
-    </div>
-    <div class="card ttt-card">
-      <h2>Execution log (one interpreter run per move)</h2>
-      <pre class="run ttt-log" id="ttt-log" aria-live="polite"></pre>
-    </div>
-    <details class="card ttt-asm" id="ttt-asm-details" open>
-      <summary>The MIPS program for this move</summary>
-      <h2>Sent to /run</h2>
-      <pre class="run" id="ttt-asm"></pre>
-      <h2>Program output</h2>
-      <pre class="run" id="ttt-output"></pre>
-    </details>
   </section>
 
   <footer>
@@ -1146,6 +1181,19 @@ async function tttMove(cell) {
   }
 }
 
+// Shows one panel of the interpreter-data card: "regs", "log" or "asm".
+function tttShowProof(name) {
+  for (const tab of document.querySelectorAll(".ttt-proof-tab")) {
+    const active = tab.dataset.proof === name;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+    document.getElementById("ttt-proof-" + tab.dataset.proof).hidden = !active;
+  }
+  // A hidden log cannot scroll, so show its newest line when it appears.
+  const log = document.getElementById("ttt-log");
+  if (name === "log") log.scrollTop = log.scrollHeight;
+}
+
 // Clears the board in the page only; the next move is the first MIPS run.
 function tttNewGame() {
   if (tttBusy) return;
@@ -1158,6 +1206,7 @@ function tttNewGame() {
   document.getElementById("ttt-message").innerHTML = "";
   document.getElementById("ttt-asm").textContent = TTT_NO_MOVE_YET;
   document.getElementById("ttt-output").textContent = TTT_NO_MOVE_YET;
+  tttShowProof("regs");
   tttRender();
 }
 
@@ -1165,6 +1214,9 @@ document.getElementById("ttt-board").innerHTML = Array.from({ length: 9 }, (_, i
   `<button class="ttt-cell" type="button" data-cell="${i}"></button>`).join("");
 for (const btn of document.querySelectorAll(".ttt-cell")) {
   btn.addEventListener("click", () => tttMove(Number(btn.dataset.cell)));
+}
+for (const tab of document.querySelectorAll(".ttt-proof-tab")) {
+  tab.addEventListener("click", () => tttShowProof(tab.dataset.proof));
 }
 document.getElementById("ttt-new").addEventListener("click", tttNewGame);
 tttNewGame();
