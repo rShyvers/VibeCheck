@@ -31,7 +31,7 @@ endif
 # Semantic MIPS is a git submodule pinned to a specific commit (see README).
 # Fetch it on install so a fresh clone satisfies RULES.md without the cloner
 # needing to know about submodules. No-op when already checked out.
-.PHONY: install run clean submodules
+.PHONY: install run clean submodules build-semantics
 
 submodules:
 	@if test -d .git; then git submodule update --init --recursive; else echo "not a git checkout; skipping submodule fetch"; fi
@@ -58,6 +58,16 @@ compile:
 
 run: install
 	$(JAVA) -cp out Main
+
+# Builds the Lean `MipsRun` interpreter that powers the "Run code" view
+# (POST /run). Needs the Lean toolchain (elan); the first build also fetches
+# Mathlib dependencies, so expect it to take a while. `make run` works without it.
+# Builds the MipsRun interpreter from the pinned semantics. `cache get` pulls
+# the prebuilt mathlib artifacts first — building mathlib from source takes
+# hours, so never skip it (CLAUDE.md §2).
+build-semantics: submodules
+	@command -v lake > /dev/null || { echo "error: 'lake' not found. Install the Lean toolchain manager elan (https://github.com/leanprover/elan), then re-run 'make build-semantics'."; exit 1; }
+	cd $(SEMANTICS) && lake exe cache get && lake build MipsRun
 
 clean:
 	rm -rf $(JRE_DIR)
