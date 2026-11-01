@@ -155,6 +155,29 @@ the one specific, unresolved blocker for the CS47 unseal (PLAN.md's
 cleanroom protocol above) — everything else that was "out of v1 scope" six
 hours ago now exists.
 
+### Additional game candidates researched (Nov 1): Connect Four noted, deferred
+
+Researched what else could run on this architecture, now scoped against
+what's actually on semantic-mips' `main` (not our pin). Findings and
+decision:
+
+- **Tic-Tac-Toe stays as shipped, unchanged.** No rewrite, no re-pin.
+- **Connect Four (Tromp's 49-bit bitboard encoding)** is a real, well-scoped
+  candidate for later: 7x4-direction win-check via bitwise shift+mask
+  (same style as Tic-Tac-Toe's mask checks, just four shift distances
+  instead of eight fixed lines), recognizable, visually a step up.
+  Estimated ~3-4h port effort. **Requires `jr`/`jalr` and real branch delay
+  slots** (both landed on their `main`, see the re-pin review below) and,
+  separately, a full rewrite of *all* branch-based game logic for delay-slot
+  timing — the same cost that blocks any re-pin today. Not started; revisit
+  only alongside a deliberate decision to re-pin and redo Tic-Tac-Toe's
+  engine for delay slots at the same time, not before.
+- Nim (Bouton's XOR theorem) was also researched as a lower-risk near-term
+  option — notably, it needs **no** re-pin (the move logic is straight-line,
+  no subroutines required) and has a genuinely clean, provable property.
+  Not pursued this round (not asked for); noted here in case it's picked up
+  later.
+
 ### Re-pin review (Nov 1, later): checked directly, decided against for now
 
 Since the note above, `main` gained a second wave: PR #9 ("32 -> 116
