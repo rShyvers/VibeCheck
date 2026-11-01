@@ -144,8 +144,9 @@ Known assembler constraint for the diff corpus: `la` only in `la $rt, label` for
 
 ## CI & merge flow
 
-- Remote: github.com/rShyvers/VibeCheck (private for now). Semantic MIPS'
-  own remote: github.com/rShyvers/semantic-mips (private).
+- Remote: github.com/rShyvers/VibeCheck. Semantic MIPS' own remote:
+  github.com/rShyvers/semantic-mips — **public**, so the submodule fetches
+  with no credentials on a fresh clone.
 - **Semantic MIPS is embedded as a git submodule** at `semantic-mips/`, pinned
   to a specific commit (see README "Semantic MIPS (submodule)"). The pin is
   bumped deliberately when the other team ships something we need — never by
