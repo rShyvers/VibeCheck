@@ -4,7 +4,7 @@
   "headline": "Semantics verified against its spec and MARS 4.5; all 7 equivalence claims behaved as claimed, including the 2 deliberately buggy variants.",
   "semantic_mips": {
     "repo": "rShyvers/semantic-mips",
-    "commit": "663594c"
+    "commit": "abf580d"
   },
   "gates": [
     {
