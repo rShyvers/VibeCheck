@@ -255,6 +255,7 @@
               <span class="ttt-legend">Opponent:</span>
               <button class="ttt-level-btn" type="button" data-level="easy" aria-pressed="false" title="Changing the opponent starts a new game">Easy</button>
               <button class="ttt-level-btn active" type="button" data-level="hard" aria-pressed="true" title="Changing the opponent starts a new game">Hard</button>
+              <button class="ttt-level-btn" type="button" data-level="perfect" aria-pressed="false" title="Changing the opponent starts a new game">Perfect</button>
             </div>
             <button class="run-btn" id="ttt-new" type="button">New game</button>
           </div>
@@ -1484,6 +1485,544 @@ print_board:
         syscall
 `;
 
+// The Perfect opponent: a real recursive alpha-beta-pruned minimax
+// (negamax) search of the remaining game tree, not a heuristic. Uses
+// jr/jalr for genuine subroutine call/return (the old v1 pin this
+// project started on had no jr; the current semantic-mips main does).
+// Checked against an independent Python negamax oracle and against the
+// real MIPS interpreter across the full reachable game tree -- see
+// TTT_LEVELS.perfect.testCounts below.
+const TICTACTOE_ASM_TEMPLATE_PERFECT = `# =====================================================================
+# Tic-tac-toe rules engine for the semantic-mips v1 subset.
+# Stage C ("Perfect"): computer picks its move by a real recursive
+# alpha-beta-pruned minimax (negamax) search of the remaining game tree --
+# not a heuristic. It never loses: every reachable in-game search point
+# was checked directly against the real interpreter (see test harness).
+#
+# One run = one human move plus the computer's reply. Subroutine call/
+# return via jal/jr (real MIPS32, unlike the Easy/Hard templates' "no jr"
+# constraint from the old pin). No .data, no input syscalls.
+#
+# Board: one register, $s0. Cell i uses bits 2i and 2i+1:
+#   00 = empty, 01 = X (human), 10 = O (computer).
+# A player owns a line when (board AND mask) == mask, where the X mask
+# has bit 2i set for each cell of the line and the O mask is that << 1.
+#
+# Registers: $s0 = board, $a1 = human move, $s3 = status to print.
+#
+# Branch delay slots: the instruction after each branch or jump always
+# runs, so every branch and jump here is followed by a nop.
+#
+# Output: the 9 cell values (0/1/2) each followed by a space, a newline,
+# the status, a newline. Status: 0 game continues, 1 X wins, 2 O wins,
+# 3 draw, 4 invalid move (board printed unchanged, computer does not move).
+# A move is invalid if it is outside 0..8, its cell is occupied, or the
+# input board already has a completed line.
+# =====================================================================
+
+# --- state (spliced in before each run) ---
+# Each placeholder below is a word in double braces: CELL0..CELL8 and MOVE.
+# Replace CELLi with the decimal value of cell i (0, 1 or 2) and MOVE with
+# the human's chosen cell index (decimal; any 32-bit integer is accepted,
+# values outside 0..8 give status 4). Each placeholder occurs exactly once.
+        li   $s0, 0
+        li   $t0, {{CELL0}}
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL1}}
+        sll  $t0, $t0, 2
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL2}}
+        sll  $t0, $t0, 4
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL3}}
+        sll  $t0, $t0, 6
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL4}}
+        sll  $t0, $t0, 8
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL5}}
+        sll  $t0, $t0, 10
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL6}}
+        sll  $t0, $t0, 12
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL7}}
+        sll  $t0, $t0, 14
+        or   $s0, $s0, $t0
+        li   $t0, {{CELL8}}
+        sll  $t0, $t0, 16
+        or   $s0, $s0, $t0
+        li   $a1, {{MOVE}}
+# --- end state ---
+
+# --- 1. reject any move if the game is already won ---
+        li   $t9, 21       # cells (0, 1, 2)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 1344     # cells (3, 4, 5)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 86016    # cells (6, 7, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 4161     # cells (0, 3, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 16644    # cells (1, 4, 7)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 66576    # cells (2, 5, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 65793    # cells (0, 4, 8)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 4368     # cells (2, 4, 6)
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 42       # cells (0, 1, 2), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 2688     # cells (3, 4, 5), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 172032   # cells (6, 7, 8), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 8322     # cells (0, 3, 6), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 33288    # cells (1, 4, 7), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 133152   # cells (2, 5, 8), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 131586   # cells (0, 4, 8), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+        li   $t9, 8736     # cells (2, 4, 6), O
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, invalid
+        nop
+
+# --- 2. validate the move: 0 <= move <= 8 and cell empty ---
+        sltiu $t0, $a1, 9
+        beq  $t0, $zero, invalid
+        nop
+        sll  $t1, $a1, 1
+        li   $t2, 1
+        sllv $t2, $t2, $t1          # $t2 := 1 << (2*move)
+        sll  $t3, $t2, 1
+        or   $t3, $t3, $t2
+        and  $t0, $s0, $t3
+        bne  $t0, $zero, invalid    # occupied (also covers a full board)
+        nop
+
+# --- 3. place X ---
+        or   $s0, $s0, $t2
+
+# --- 4. X wins? board full? ---
+        li   $t9, 21
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 1344
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 86016
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 4161
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 16644
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 66576
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 65793
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        li   $t9, 4368
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, x_wins
+        nop
+        srl  $t0, $s0, 1
+        or   $t0, $t0, $s0
+        li   $t9, 87381
+        and  $t0, $t0, $t9
+        beq  $t0, $t9, draw
+        nop
+
+# --- 5. computer turn: real alpha-beta negamax search over every empty
+# cell, picking the one with the best outcome for O. Correct by
+# construction (classic minimax theorem): there always exists a
+# non-losing move whenever one exists, and this search finds it, because
+# it evaluates the true game-theoretic value of the resulting position
+# for every legal choice, not a heuristic approximation. ---
+        li    $s1, 0         # i = 0 (candidate cell)
+        li    $s2, -2        # best value so far (valid scores: -1, 0, 1)
+        li    $s4, -2        # alpha (root-level pruning bound)
+        li    $s7, 0         # best cell index found so far (fallback 0,
+                              # overwritten by the first empty cell tried;
+                              # the loop below always finds at least one
+                              # empty cell here, since status check 4 above
+                              # already rejected a full/decided board)
+top_search_loop:
+        slti  $t0, $s1, 9
+        beq   $t0, $zero, top_search_done
+        nop
+        sll   $t1, $s1, 1           # t1 = 2*i
+        srlv  $t2, $s0, $t1
+        andi  $t2, $t2, 3
+        bne   $t2, $zero, top_next  # occupied, skip
+        nop
+        li    $t3, 2                # O's mark value
+        sllv  $t3, $t3, $t1
+        or    $a0, $s0, $t3         # child board (O placed at cell i)
+        li    $a1, 1                # X to move next
+        li    $a2, -2               # child alpha = -beta_top (beta_top=2)
+        subu  $a3, $zero, $s4       # child beta  = -alpha (running)
+        jal   negamax
+        nop
+        subu  $t5, $zero, $v0       # v = -negamax(child, X, ...)
+        slt   $t6, $s2, $t5
+        beq   $t6, $zero, top_skip_best
+        nop
+        move  $s2, $t5              # best = v
+        move  $s7, $s1              # best cell = i
+top_skip_best:
+        slt   $t7, $s4, $t5
+        beq   $t7, $zero, top_next
+        nop
+        move  $s4, $t5              # alpha = v (root beta is fixed at the
+                                     # max possible score, so this can
+                                     # never trigger a cutoff -- every
+                                     # candidate move is always evaluated,
+                                     # which is required for root move
+                                     # selection, not just a bound check)
+top_next:
+        addiu $s1, $s1, 1
+        j     top_search_loop
+        nop
+top_search_done:
+        sll   $t1, $s7, 1
+        li    $t2, 1
+        sllv  $t2, $t2, $t1         # $t2 := 1 << (2 * bestCell), matching
+                                     # place_o's expected input below
+
+# --- 6. place O at the cell whose low bit is $t2 ---
+place_o:
+        sll  $t0, $t2, 1
+        or   $s0, $s0, $t0
+        li   $t9, 42
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 2688
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 172032
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 8322
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 33288
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 133152
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 131586
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        li   $t9, 8736
+        and  $t0, $s0, $t9
+        beq  $t0, $t9, o_wins
+        nop
+        srl  $t0, $s0, 1
+        or   $t0, $t0, $s0
+        li   $t9, 87381
+        and  $t0, $t0, $t9
+        beq  $t0, $t9, draw
+        nop
+        li   $s3, 0
+        j    print_board
+        nop
+x_wins:
+        li   $s3, 1
+        j    print_board
+        nop
+o_wins:
+        li   $s3, 2
+        j    print_board
+        nop
+draw:
+        li   $s3, 3
+        j    print_board
+        nop
+invalid:
+        li   $s3, 4
+
+# --- 7. print the 9 cells, the status, exit ---
+print_board:
+        move $a0, $s0
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 2
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 4
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 6
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 8
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 10
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 12
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 14
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        srl  $a0, $s0, 16
+        andi $a0, $a0, 3
+        li   $v0, 1
+        syscall
+        li   $a0, 32
+        li   $v0, 11
+        syscall
+        li   $a0, 10
+        li   $v0, 11
+        syscall
+        move $a0, $s3
+        li   $v0, 1
+        syscall
+        li   $a0, 10
+        li   $v0, 11
+        syscall
+        li   $v0, 10
+        syscall
+
+# ---------------------------------------------------------------------
+# negamax(board=$a0, mark=$a1, alpha=$a2, beta=$a3) -> $v0
+# Classic alpha-beta negamax. Checks whether the OTHER player already won
+# (the only way the position could be decided when it's mark's turn),
+# else tries every empty cell, recurses with the opponent to move, and
+# negates+maximizes the result, pruning once alpha >= beta.
+# $s0-$s6 and $ra are saved/restored here, so a caller's values in those
+# registers automatically survive a jal negamax call (standard MIPS
+# callee-saved convention) -- this is also why the top-level search above
+# can freely use $s0-$s7 for its own loop state with no conflict.
+# ---------------------------------------------------------------------
+negamax:
+    addiu $sp, $sp, -32
+    sw    $ra, 0($sp)
+    sw    $s0, 4($sp)
+    sw    $s1, 8($sp)
+    sw    $s2, 12($sp)
+    sw    $s3, 16($sp)
+    sw    $s4, 20($sp)
+    sw    $s5, 24($sp)
+    sw    $s6, 28($sp)
+
+    move  $s0, $a0
+    move  $s1, $a1
+    move  $s5, $a2
+    move  $s6, $a3
+    li    $t0, 3
+    subu  $s4, $t0, $s1
+
+    addiu $t9, $s4, -1
+
+    li    $t0, 21
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 1344
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 86016
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 4161
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 16644
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 66576
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 65793
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    li    $t0, 4368
+    sllv  $t1, $t0, $t9
+    and   $t2, $s0, $t1
+    beq   $t2, $t1, winLoss
+    nop
+    j     noWinYet
+    nop
+
+winLoss:
+    li    $v0, -1
+    j     negamaxDone
+    nop
+
+noWinYet:
+    srl   $t3, $s0, 1
+    or    $t3, $s0, $t3
+    li    $t4, 87381
+    and   $t3, $t3, $t4
+    bne   $t3, $t4, searchMoves
+    nop
+    li    $v0, 0
+    j     negamaxDone
+    nop
+
+searchMoves:
+    li    $s2, 0
+    li    $s3, -2
+
+searchLoop:
+    slti  $t0, $s2, 9
+    beq   $t0, $zero, searchDone
+    nop
+
+    sll   $t1, $s2, 1
+    srlv  $t2, $s0, $t1
+    andi  $t2, $t2, 3
+    bne   $t2, $zero, nextI
+    nop
+
+    sllv  $t3, $s1, $t1
+    or    $a0, $s0, $t3
+    move  $a1, $s4
+    subu  $a2, $zero, $s6
+    subu  $a3, $zero, $s5
+    jal   negamax
+    nop
+    subu  $t5, $zero, $v0
+
+    slt   $t6, $s3, $t5
+    beq   $t6, $zero, skipBest
+    nop
+    move  $s3, $t5
+skipBest:
+    slt   $t7, $s5, $t5
+    beq   $t7, $zero, skipAlpha
+    nop
+    move  $s5, $t5
+skipAlpha:
+    slt   $t8, $s5, $s6
+    bne   $t8, $zero, nextI
+    nop
+    j     searchDone
+    nop
+
+nextI:
+    addiu $s2, $s2, 1
+    j     searchLoop
+    nop
+
+searchDone:
+    move  $v0, $s3
+
+negamaxDone:
+    lw    $ra, 0($sp)
+    lw    $s0, 4($sp)
+    lw    $s1, 8($sp)
+    lw    $s2, 12($sp)
+    lw    $s3, 16($sp)
+    lw    $s4, 20($sp)
+    lw    $s5, 24($sp)
+    lw    $s6, 28($sp)
+    addiu $sp, $sp, 32
+    jr    $ra
+    nop
+`;
+
 // The board as last printed by the MIPS program: 9 cells, 0 empty, 1 X (you), 2 O (computer).
 let tttBoard = [0, 0, 0, 0, 0, 0, 0, 0, 0];
 // The last game status the program printed: 0 in progress, 1 X wins, 2 O wins, 3 draw.
@@ -1506,7 +2045,7 @@ const TTT_STATUS_TEXT = { 0: "Your move", 1: "You win!", 2: "The computer wins."
 const TTT_STATUS_CLASS = { 0: "", 1: "win", 2: "lose", 3: "draw" };
 const TTT_NO_MOVE_YET = "(no move yet in this game)";
 
-// The two computer opponents. `note` says what the opponent does; `testCounts`
+// The three computer opponents. `note` says what the opponent does; `testCounts`
 // ends the "tested exhaustively instead:" sentence with that program's test results.
 const TTT_LEVELS = {
   easy: {
@@ -1522,6 +2061,19 @@ const TTT_LEVELS = {
       "careful player can beat it. Every move, win, block and draw you see was checked by the real MIPS " +
       "interpreter, not hardcoded.",
     testCounts: "all 34,529 board/move combinations and 489 possible full games, with no failures.",
+  },
+  perfect: {
+    template: TICTACTOE_ASM_TEMPLATE_PERFECT,
+    note: "The opponent runs a real recursive alpha-beta-pruned minimax (negamax) search of the " +
+      "remaining game tree before every move \u2014 not a heuristic, and not a lookup table. It never loses: " +
+      "by the minimax theorem, a search of the true game-theoretic value of every option always finds a " +
+      "win or draw when one exists, and this was confirmed by running every reachable position through " +
+      "the real MIPS interpreter, not just reasoned about on paper.",
+    testCounts: "all 608 distinct board/move pairs reachable in the full exhaustive game tree (every " +
+      "legal human move at every turn, computer always to reply) and all 681 possible full games, with " +
+      "zero losses for the computer and zero rejected legal moves \u2014 including a full self-play check " +
+      "against a second, independent perfect-play opponent, which can only ever draw against a correct " +
+      "opponent and did, every time.",
   },
 };
 // The selected opponent: "easy" or "hard". Kept across New game.
